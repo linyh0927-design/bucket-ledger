@@ -1,0 +1,17 @@
+{
+  "name": "分桶帳本",
+  "short_name": "分桶帳本",
+  "description": "只存在手機本機的收入分桶預算帳本",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f8f5",
+  "theme_color": "#1f7a4d",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

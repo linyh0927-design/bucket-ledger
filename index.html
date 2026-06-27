@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f7a4d" />
+    <title>分桶帳本</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=20260622-bucket4" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Bucket-based budgeting</p>
+          <h1>分桶帳本</h1>
+        </div>
+        <button id="installBtn" class="ghost-button hidden" type="button">加入主畫面</button>
+      </header>
+
+      <section class="month-strip" aria-label="月份選擇">
+        <label>
+          <span>查看月份</span>
+          <input id="selectedMonth" type="month" />
+        </label>
+        <button id="jumpCurrentMonth" class="ghost-button" type="button">本月</button>
+      </section>
+
+      <section id="dashboardView" class="view active" data-view="dashboard">
+        <section class="summary-grid" aria-label="首頁總覽">
+          <article class="summary-card primary">
+            <span>本月收入</span>
+            <strong id="monthIncome">NT$0</strong>
+          </article>
+          <article class="summary-card">
+            <span>本月支出</span>
+            <strong id="monthSpent">NT$0</strong>
+          </article>
+          <article class="summary-card">
+            <span>本月分配</span>
+            <strong id="monthAllocated">NT$0</strong>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>各桶目前餘額</h2>
+            <span id="bucketAsOfLabel"></span>
+          </div>
+          <div id="bucketCards" class="bucket-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>重點追蹤</h2>
+          </div>
+          <div class="insight-grid">
+            <article>
+              <span>儲蓄累積</span>
+              <strong id="savingsBalance">NT$0</strong>
+            </article>
+            <article>
+              <span>ETF 累積投入</span>
+              <strong id="etfInvested">NT$0</strong>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section id="entryView" class="view" data-view="entry">
+        <div class="segmented" role="tablist" aria-label="新增類型">
+          <button class="active" data-entry-mode="expense" type="button">支出</button>
+          <button data-entry-mode="income" type="button">收入</button>
+          <button data-entry-mode="transfer" type="button">轉移</button>
+        </div>
+
+        <form id="expenseForm" class="panel entry-form active" data-entry-panel="expense">
+          <h2>記一筆支出</h2>
+          <label>
+            <span>金額</span>
+            <input id="expenseAmount" type="number" min="0" step="1" inputmode="decimal" required />
+          </label>
+          <label>
+            <span>日期</span>
+            <input id="expenseDate" type="date" required />
+          </label>
+          <label>
+            <span>分類群組</span>
+            <select id="categoryGroup"></select>
+          </label>
+          <label id="categoryLabel">
+            <span>分類</span>
+            <select id="expenseCategory"></select>
+          </label>
+          <label>
+            <span>扣款桶</span>
+            <select id="expenseBucket"></select>
+          </label>
+          <label>
+            <span>項目 / 備註</span>
+            <input id="expenseItem" type="text" maxlength="80" placeholder="例如：午餐、機票、課程" />
+          </label>
+          <button class="primary-button" type="submit">新增支出</button>
+        </form>
+
+        <form id="incomeForm" class="panel entry-form" data-entry-panel="income">
+          <h2>新增收入並自動分桶</h2>
+          <label>
+            <span>金額</span>
+            <input id="incomeAmount" type="number" min="0" step="1" inputmode="decimal" required />
+          </label>
+          <label>
+            <span>日期</span>
+            <input id="incomeDate" type="date" required />
+          </label>
+          <div id="allocationPreview" class="allocation-preview"></div>
+          <button class="primary-button" type="submit">新增收入</button>
+        </form>
+
+        <form id="transferForm" class="panel entry-form" data-entry-panel="transfer">
+          <h2>桶之間轉移</h2>
+          <label>
+            <span>金額</span>
+            <input id="transferAmount" type="number" min="0" step="1" inputmode="decimal" required />
+          </label>
+          <label>
+            <span>日期</span>
+            <input id="transferDate" type="date" required />
+          </label>
+          <label>
+            <span>來源桶</span>
+            <select id="fromBucket"></select>
+          </label>
+          <label>
+            <span>目標桶</span>
+            <select id="toBucket"></select>
+          </label>
+          <label>
+            <span>備註</span>
+            <input id="transferNote" type="text" maxlength="80" placeholder="例如：補生活桶、加碼 ETF" />
+          </label>
+          <button class="primary-button" type="submit">新增轉移</button>
+        </form>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>最近紀錄</h2>
+          </div>
+          <div id="recentRecords" class="records-list"></div>
+        </section>
+      </section>
+
+      <section id="reportsView" class="view" data-view="reports">
+        <section class="panel">
+          <div class="section-heading">
+            <h2>每月桶報表</h2>
+            <span id="reportMonthLabel"></span>
+          </div>
+          <div id="monthlyReport" class="report-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>分類分析</h2>
+            <span>本月支出</span>
+          </div>
+          <div id="categoryAnalysis" class="ratio-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>12 個月趨勢</h2>
+          </div>
+          <div id="trendList" class="trend-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>桶使用分析</h2>
+            <span>本月</span>
+          </div>
+          <div id="bucketUsage" class="ratio-list"></div>
+        </section>
+      </section>
+
+      <section id="settingsView" class="view" data-view="settings">
+        <form id="settingsForm" class="panel">
+          <div class="section-heading">
+            <h2>桶設定</h2>
+            <span>固定桶，可調金額</span>
+          </div>
+          <div id="bucketSettings" class="settings-list"></div>
+          <button class="primary-button" type="submit">儲存設定</button>
+        </form>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>備份</h2>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBtn" class="ghost-button" type="button">匯出 JSON</button>
+            <label class="ghost-button file-button">
+              匯入 JSON
+              <input id="importInput" type="file" accept="application/json" />
+            </label>
+          </div>
+          <p class="hint">資料只存在這支手機的瀏覽器本機。換手機或清除瀏覽器資料前，請先匯出備份。</p>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="主要功能">
+      <button class="active" data-tab="dashboard" type="button">首頁</button>
+      <button data-tab="entry" type="button">記一筆</button>
+      <button data-tab="reports" type="button">報表</button>
+      <button data-tab="settings" type="button">設定</button>
+    </nav>
+
+    <template id="emptyTemplate">
+      <div class="empty-state">
+        <strong>還沒有資料</strong>
+        <p>新增收入、支出或轉移後，這裡會開始整理你的桶。</p>
+      </div>
+    </template>
+
+    <script src="app.js?v=20260622-bucket4" defer></script>
+  </body>
+</html>

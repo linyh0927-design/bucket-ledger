@@ -1,0 +1,524 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f8f5;
+  --panel: #ffffff;
+  --text: #202523;
+  --muted: #66716b;
+  --line: #dbe6df;
+  --green: #1f7a4d;
+  --green-strong: #155f3b;
+  --mint: #dff3e6;
+  --rose: #c94f68;
+  --rose-soft: #f8dfe5;
+  --cyan: #267f87;
+  --cyan-soft: #dff1f3;
+  --shadow: 0 10px 30px rgba(31, 122, 77, 0.11);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 18px 14px 92px;
+}
+
+.topbar,
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar {
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+}
+
+.hidden,
+.view:not(.active),
+[data-entry-panel]:not(.active) {
+  display: none !important;
+}
+
+.view.active,
+[data-entry-panel].active {
+  display: block !important;
+}
+
+[data-entry-panel].active.entry-form {
+  display: grid !important;
+}
+
+.month-strip,
+.summary-grid,
+.insight-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.month-strip {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.summary-grid {
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 12px;
+}
+
+.summary-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.summary-card.primary {
+  grid-column: 1 / -1;
+  background: var(--green);
+  color: #fff;
+}
+
+.summary-card span,
+.insight-grid span,
+label span,
+.settings-row small,
+.section-heading span,
+.hint {
+  color: var(--muted);
+}
+
+.summary-card.primary span {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.summary-card span,
+.insight-grid span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.summary-card strong,
+.insight-grid strong {
+  display: block;
+  font-size: 1.36rem;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.panel,
+.summary-card,
+.insight-grid article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.panel {
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.section-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-heading span {
+  font-size: 0.86rem;
+}
+
+label span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 3px solid rgba(31, 122, 77, 0.2);
+  outline-offset: 2px;
+}
+
+.ghost-button,
+.primary-button,
+.segmented button,
+.bottom-nav button {
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.ghost-button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--green-strong);
+}
+
+.primary-button {
+  min-height: 48px;
+  border: 0;
+  background: var(--green);
+  color: #fff;
+}
+
+.bucket-grid,
+.records-list,
+.report-list,
+.ratio-list,
+.trend-list,
+.settings-list {
+  display: grid;
+  gap: 10px;
+}
+
+.bucket-card,
+.record,
+.report-row,
+.trend-row,
+.settings-row {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.bucket-card header,
+.record header,
+.report-row header,
+.trend-row header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.bucket-balance {
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
+.bucket-meta,
+.record-meta,
+.report-grid,
+.trend-grid {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.bucket-meta {
+  grid-template-columns: 1fr 1fr;
+}
+
+.bucket-meta b,
+.report-grid b,
+.trend-grid b {
+  display: block;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.insight-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.insight-grid article {
+  padding: 12px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.segmented button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.segmented button.active,
+.bottom-nav button.active {
+  border-color: var(--green);
+  background: var(--mint);
+  color: var(--green-strong);
+}
+
+.entry-form {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 10px;
+}
+
+.entry-form h2,
+.entry-form label:nth-last-of-type(1),
+.entry-form .allocation-preview,
+.entry-form .primary-button {
+  grid-column: 1 / -1;
+}
+
+.allocation-preview {
+  display: grid;
+  gap: 8px;
+}
+
+.allocation-line,
+.ratio-row {
+  display: grid;
+  gap: 7px;
+}
+
+.allocation-line div,
+.ratio-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
+}
+
+.bar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8efea;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--cyan);
+}
+
+.record.expense .amount,
+.negative {
+  color: var(--rose);
+}
+
+.record.income .amount,
+.positive {
+  color: var(--green-strong);
+}
+
+.record.transfer .amount {
+  color: var(--cyan);
+}
+
+.record .amount {
+  white-space: nowrap;
+  font-weight: 900;
+}
+
+.record-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.delete-button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+}
+
+.report-grid,
+.trend-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--mint);
+  color: var(--green-strong);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.pill.investment {
+  background: var(--cyan-soft);
+  color: var(--cyan);
+}
+
+.pill.spending {
+  background: var(--rose-soft);
+  color: var(--rose);
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.settings-row h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.settings-row small {
+  display: block;
+  margin-top: 3px;
+}
+
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.file-button {
+  display: grid;
+  place-items: center;
+}
+
+.file-button input {
+  display: none;
+}
+
+.hint {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.empty-state {
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text);
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.bottom-nav button {
+  min-height: 44px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+@media (min-width: 640px) {
+  .app-shell {
+    padding-top: 26px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1.4fr 1fr 1fr;
+  }
+
+  .summary-card.primary {
+    grid-column: auto;
+  }
+
+  .bucket-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .entry-form {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .entry-form h2,
+  .entry-form label:nth-last-of-type(1),
+  .entry-form .allocation-preview,
+  .entry-form .primary-button {
+    grid-column: 1 / -1;
+  }
+}
