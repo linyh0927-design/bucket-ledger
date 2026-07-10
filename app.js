@@ -38,6 +38,7 @@ const state = {
   },
   selectedMonth: "",
   entryMode: "expense",
+  editing: null,
   deferredInstallPrompt: null,
 };
 
@@ -70,7 +71,15 @@ const els = {
   fromBucket: document.querySelector("#fromBucket"),
   toBucket: document.querySelector("#toBucket"),
   transferNote: document.querySelector("#transferNote"),
+  expenseSubmit: document.querySelector("#expenseSubmit"),
+  incomeSubmit: document.querySelector("#incomeSubmit"),
+  transferSubmit: document.querySelector("#transferSubmit"),
+  expenseCancelEdit: document.querySelector("#expenseCancelEdit"),
+  incomeCancelEdit: document.querySelector("#incomeCancelEdit"),
+  transferCancelEdit: document.querySelector("#transferCancelEdit"),
   recentRecords: document.querySelector("#recentRecords"),
+  historyRecords: document.querySelector("#historyRecords"),
+  historyCount: document.querySelector("#historyCount"),
   reportMonthLabel: document.querySelector("#reportMonthLabel"),
   monthlyReport: document.querySelector("#monthlyReport"),
   categoryAnalysis: document.querySelector("#categoryAnalysis"),
@@ -283,6 +292,22 @@ function monthRecords(month) {
   };
 }
 
+function combinedRecords(records) {
+  return [
+    ...records.expenses.map((item) => ({ ...item, recordType: "expense" })),
+    ...records.incomes.map((item) => ({ ...item, recordType: "income" })),
+    ...records.transfers.map((item) => ({ ...item, recordType: "transfer" })),
+  ].sort((a, b) => `${b.date}${b.createdAt || ""}`.localeCompare(`${a.date}${a.createdAt || ""}`));
+}
+
+function allCombinedRecords() {
+  return combinedRecords({
+    incomes: state.data.incomes,
+    expenses: state.data.expenses,
+    transfers: state.data.transfers,
+  });
+}
+
 function renderDashboard() {
   const records = monthRecords(state.selectedMonth);
   const snapshot = monthlySnapshot(state.selectedMonth);
@@ -352,13 +377,7 @@ function renderAllocationPreview() {
 }
 
 function renderRecentRecords() {
-  const records = [
-    ...state.data.expenses.map((item) => ({ ...item, recordType: "expense" })),
-    ...state.data.incomes.map((item) => ({ ...item, recordType: "income" })),
-    ...state.data.transfers.map((item) => ({ ...item, recordType: "transfer" })),
-  ]
-    .sort((a, b) => `${b.date}${b.createdAt || ""}`.localeCompare(`${a.date}${a.createdAt || ""}`))
-    .slice(0, 12);
+  const records = allCombinedRecords().slice(0, 12);
 
   if (!records.length) {
     els.recentRecords.replaceChildren(els.emptyTemplate.content.cloneNode(true));
@@ -368,13 +387,28 @@ function renderRecentRecords() {
   els.recentRecords.innerHTML = records.map(renderRecord).join("");
 }
 
+function renderHistoryRecords() {
+  const records = combinedRecords(monthRecords(state.selectedMonth));
+  els.historyCount.textContent = `${records.length} 筆`;
+
+  if (!records.length) {
+    els.historyRecords.replaceChildren(els.emptyTemplate.content.cloneNode(true));
+    return;
+  }
+
+  els.historyRecords.innerHTML = records.map(renderRecord).join("");
+}
+
 function renderRecord(record) {
   if (record.recordType === "income") {
     return `
       <article class="record income">
         <header><strong>收入</strong><span class="amount">${money.format(record.amount)}</span></header>
         <div class="record-meta">${escapeHtml(record.date)}｜自動分桶</div>
-        <div class="record-actions"><button class="delete-button" data-delete-type="income" data-delete-id="${record.id}" type="button">刪除</button></div>
+        <div class="record-actions">
+          <button class="edit-button" data-edit-type="income" data-edit-id="${record.id}" type="button">編輯</button>
+          <button class="delete-button" data-delete-type="income" data-delete-id="${record.id}" type="button">刪除</button>
+        </div>
       </article>
     `;
   }
@@ -384,7 +418,10 @@ function renderRecord(record) {
       <article class="record transfer">
         <header><strong>桶轉移</strong><span class="amount">${money.format(record.amount)}</span></header>
         <div class="record-meta">${escapeHtml(record.date)}｜${escapeHtml(bucketById(record.fromBucketId)?.name)} → ${escapeHtml(bucketById(record.toBucketId)?.name)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</div>
-        <div class="record-actions"><button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button></div>
+        <div class="record-actions">
+          <button class="edit-button" data-edit-type="transfer" data-edit-id="${record.id}" type="button">編輯</button>
+          <button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button>
+        </div>
       </article>
     `;
   }
@@ -393,7 +430,10 @@ function renderRecord(record) {
     <article class="record expense">
       <header><strong>${escapeHtml(record.itemName || record.category)}</strong><span class="amount">-${money.format(record.amount)}</span></header>
       <div class="record-meta">${escapeHtml(record.date)}｜${escapeHtml(categoryGroups[record.categoryGroup]?.label)} / ${escapeHtml(record.category)}｜扣 ${escapeHtml(bucketById(record.bucketId)?.name)}</div>
-      <div class="record-actions"><button class="delete-button" data-delete-type="expense" data-delete-id="${record.id}" type="button">刪除</button></div>
+      <div class="record-actions">
+        <button class="edit-button" data-edit-type="expense" data-edit-id="${record.id}" type="button">編輯</button>
+        <button class="delete-button" data-delete-type="expense" data-delete-id="${record.id}" type="button">刪除</button>
+      </div>
     </article>
   `;
 }
@@ -499,6 +539,24 @@ function renderSettings() {
     .join("");
 }
 
+function renderEditMode() {
+  const labels = {
+    income: ["新增收入", "更新收入"],
+    expense: ["新增支出", "更新支出"],
+    transfer: ["新增轉移", "更新轉移"],
+  };
+
+  [
+    ["income", els.incomeSubmit, els.incomeCancelEdit],
+    ["expense", els.expenseSubmit, els.expenseCancelEdit],
+    ["transfer", els.transferSubmit, els.transferCancelEdit],
+  ].forEach(([type, submit, cancel]) => {
+    const isEditing = state.editing?.type === type;
+    submit.textContent = isEditing ? labels[type][1] : labels[type][0];
+    cancel.classList.toggle("hidden", !isEditing);
+  });
+}
+
 function renderSelectors() {
   els.categoryGroup.innerHTML = Object.entries(categoryGroups)
     .map(([id, group]) => `<option value="${id}">${escapeHtml(group.label)}</option>`)
@@ -521,9 +579,11 @@ function updateCategorySelectors() {
 
 function render() {
   renderSelectors();
+  renderEditMode();
   renderDashboard();
   renderAllocationPreview();
   renderRecentRecords();
+  renderHistoryRecords();
   renderReports();
   renderSettings();
 }
@@ -532,13 +592,22 @@ function addIncome(event) {
   event.preventDefault();
   const amount = Number(els.incomeAmount.value || 0);
   if (!amount) return;
-  state.data.incomes.push({
-    id: makeId(),
+  const record = {
     date: els.incomeDate.value,
     amount,
     allocations: allocateIncome(amount),
-    createdAt: new Date().toISOString(),
-  });
+  };
+  if (state.editing?.type === "income") {
+    const existing = state.data.incomes.find((item) => item.id === state.editing.id);
+    if (existing) Object.assign(existing, record);
+    clearEditMode();
+  } else {
+    state.data.incomes.push({
+      id: makeId(),
+      ...record,
+      createdAt: new Date().toISOString(),
+    });
+  }
   saveData();
   els.incomeAmount.value = "";
   render();
@@ -549,8 +618,7 @@ function addExpense(event) {
   const amount = Number(els.expenseAmount.value || 0);
   if (!amount) return;
   const group = categoryGroups[els.categoryGroup.value];
-  state.data.expenses.push({
-    id: makeId(),
+  const record = {
     date: els.expenseDate.value,
     amount,
     categoryGroup: els.categoryGroup.value,
@@ -558,8 +626,18 @@ function addExpense(event) {
     itemName: els.expenseItem.value.trim(),
     bucketId: els.expenseBucket.value || group.defaultBucketId,
     note: "",
-    createdAt: new Date().toISOString(),
-  });
+  };
+  if (state.editing?.type === "expense") {
+    const existing = state.data.expenses.find((item) => item.id === state.editing.id);
+    if (existing) Object.assign(existing, record);
+    clearEditMode();
+  } else {
+    state.data.expenses.push({
+      id: makeId(),
+      ...record,
+      createdAt: new Date().toISOString(),
+    });
+  }
   saveData();
   els.expenseAmount.value = "";
   els.expenseItem.value = "";
@@ -573,15 +651,24 @@ function addTransfer(event) {
     alert("請確認金額，且來源桶與目標桶不能相同。");
     return;
   }
-  state.data.transfers.push({
-    id: makeId(),
+  const record = {
     date: els.transferDate.value,
     fromBucketId: els.fromBucket.value,
     toBucketId: els.toBucket.value,
     amount,
     note: els.transferNote.value.trim(),
-    createdAt: new Date().toISOString(),
-  });
+  };
+  if (state.editing?.type === "transfer") {
+    const existing = state.data.transfers.find((item) => item.id === state.editing.id);
+    if (existing) Object.assign(existing, record);
+    clearEditMode();
+  } else {
+    state.data.transfers.push({
+      id: makeId(),
+      ...record,
+      createdAt: new Date().toISOString(),
+    });
+  }
   saveData();
   els.transferAmount.value = "";
   els.transferNote.value = "";
@@ -592,8 +679,56 @@ function deleteRecord(type, id) {
   if (type === "income") state.data.incomes = state.data.incomes.filter((item) => item.id !== id);
   if (type === "expense") state.data.expenses = state.data.expenses.filter((item) => item.id !== id);
   if (type === "transfer") state.data.transfers = state.data.transfers.filter((item) => item.id !== id);
+  if (state.editing?.type === type && state.editing?.id === id) clearEditMode();
   saveData();
   render();
+}
+
+function recordByType(type, id) {
+  if (type === "income") return state.data.incomes.find((item) => item.id === id);
+  if (type === "expense") return state.data.expenses.find((item) => item.id === id);
+  if (type === "transfer") return state.data.transfers.find((item) => item.id === id);
+  return null;
+}
+
+function editRecord(type, id) {
+  const record = recordByType(type, id);
+  if (!record) return;
+
+  state.editing = { type, id };
+  setActiveTab("entry");
+  setEntryMode(type);
+
+  if (type === "income") {
+    els.incomeDate.value = record.date;
+    els.incomeAmount.value = record.amount;
+    renderAllocationPreview();
+  }
+
+  if (type === "expense") {
+    els.expenseDate.value = record.date;
+    els.expenseAmount.value = record.amount;
+    els.categoryGroup.value = record.categoryGroup;
+    updateCategorySelectors();
+    els.expenseCategory.value = record.category;
+    els.expenseBucket.value = record.bucketId;
+    els.expenseItem.value = record.itemName || record.note || "";
+  }
+
+  if (type === "transfer") {
+    els.transferDate.value = record.date;
+    els.transferAmount.value = record.amount;
+    els.fromBucket.value = record.fromBucketId;
+    els.toBucket.value = record.toBucketId;
+    els.transferNote.value = record.note || "";
+  }
+
+  renderEditMode();
+}
+
+function clearEditMode() {
+  state.editing = null;
+  renderEditMode();
 }
 
 function saveSettings(event) {
@@ -645,6 +780,17 @@ function setEntryMode(mode) {
   document.querySelectorAll("[data-entry-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.entryPanel === mode));
 }
 
+function handleRecordAction(event) {
+  const editButton = event.target.closest("[data-edit-id]");
+  if (editButton) {
+    editRecord(editButton.dataset.editType, editButton.dataset.editId);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete-id]");
+  if (deleteButton) deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
+}
+
 function initEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tab)));
   document.querySelectorAll("[data-entry-mode]").forEach((button) => button.addEventListener("click", () => setEntryMode(button.dataset.entryMode)));
@@ -665,9 +811,10 @@ function initEvents() {
   els.settingsForm.addEventListener("submit", saveSettings);
   els.exportBtn.addEventListener("click", exportData);
   els.importInput.addEventListener("change", () => importData(els.importInput.files[0]));
-  els.recentRecords.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-delete-id]");
-    if (button) deleteRecord(button.dataset.deleteType, button.dataset.deleteId);
+  els.recentRecords.addEventListener("click", handleRecordAction);
+  els.historyRecords.addEventListener("click", handleRecordAction);
+  [els.expenseCancelEdit, els.incomeCancelEdit, els.transferCancelEdit].forEach((button) => {
+    button.addEventListener("click", clearEditMode);
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {

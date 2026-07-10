@@ -321,7 +321,8 @@ button:focus-visible {
 .entry-form h2,
 .entry-form label:nth-last-of-type(1),
 .entry-form .allocation-preview,
-.entry-form .primary-button {
+.entry-form .primary-button,
+.entry-form .edit-cancel {
   grid-column: 1 / -1;
 }
 
@@ -380,17 +381,23 @@ button:focus-visible {
 
 .record-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
   margin-top: 10px;
 }
 
-.delete-button {
+.delete-button,
+.edit-button {
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: var(--muted);
+}
+
+.edit-button {
+  color: var(--green-strong);
 }
 
 .report-grid,
@@ -479,7 +486,7 @@ button:focus-visible {
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 7px;
   padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
@@ -489,9 +496,11 @@ button:focus-visible {
 
 .bottom-nav button {
   min-height: 44px;
+  padding: 0 4px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
+  font-size: 0.92rem;
 }
 
 @media (min-width: 640px) {
@@ -518,7 +527,8 @@ button:focus-visible {
   .entry-form h2,
   .entry-form label:nth-last-of-type(1),
   .entry-form .allocation-preview,
-  .entry-form .primary-button {
+  .entry-form .primary-button,
+  .entry-form .edit-cancel {
     grid-column: 1 / -1;
   }
 }

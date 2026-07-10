@@ -7,7 +7,7 @@
     <title>分桶帳本</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260622-bucket4" />
+    <link rel="stylesheet" href="styles.css?v=20260710-history" />
   </head>
   <body>
     <main class="app-shell">
@@ -101,7 +101,8 @@
             <span>項目 / 備註</span>
             <input id="expenseItem" type="text" maxlength="80" placeholder="例如：午餐、機票、課程" />
           </label>
-          <button class="primary-button" type="submit">新增支出</button>
+          <button id="expenseSubmit" class="primary-button" type="submit">新增支出</button>
+          <button id="expenseCancelEdit" class="ghost-button edit-cancel hidden" type="button">取消編輯</button>
         </form>
 
         <form id="incomeForm" class="panel entry-form" data-entry-panel="income">
@@ -115,7 +116,8 @@
             <input id="incomeDate" type="date" required />
           </label>
           <div id="allocationPreview" class="allocation-preview"></div>
-          <button class="primary-button" type="submit">新增收入</button>
+          <button id="incomeSubmit" class="primary-button" type="submit">新增收入</button>
+          <button id="incomeCancelEdit" class="ghost-button edit-cancel hidden" type="button">取消編輯</button>
         </form>
 
         <form id="transferForm" class="panel entry-form" data-entry-panel="transfer">
@@ -140,7 +142,8 @@
             <span>備註</span>
             <input id="transferNote" type="text" maxlength="80" placeholder="例如：補生活桶、加碼 ETF" />
           </label>
-          <button class="primary-button" type="submit">新增轉移</button>
+          <button id="transferSubmit" class="primary-button" type="submit">新增轉移</button>
+          <button id="transferCancelEdit" class="ghost-button edit-cancel hidden" type="button">取消編輯</button>
         </form>
 
         <section class="panel">
@@ -148,6 +151,17 @@
             <h2>最近紀錄</h2>
           </div>
           <div id="recentRecords" class="records-list"></div>
+        </section>
+      </section>
+
+      <section id="historyView" class="view" data-view="history">
+        <section class="panel">
+          <div class="section-heading">
+            <h2>月份紀錄</h2>
+            <span id="historyCount">0 筆</span>
+          </div>
+          <p class="hint">用上方月份切換，可以回溯任何月份的收入、支出與轉移。點「編輯」會帶回記一筆表單修改。</p>
+          <div id="historyRecords" class="records-list"></div>
         </section>
       </section>
 
@@ -213,6 +227,7 @@
     <nav class="bottom-nav" aria-label="主要功能">
       <button class="active" data-tab="dashboard" type="button">首頁</button>
       <button data-tab="entry" type="button">記一筆</button>
+      <button data-tab="history" type="button">紀錄</button>
       <button data-tab="reports" type="button">報表</button>
       <button data-tab="settings" type="button">設定</button>
     </nav>
@@ -224,6 +239,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=20260622-bucket4" defer></script>
+    <script src="app.js?v=20260710-history" defer></script>
   </body>
 </html>
