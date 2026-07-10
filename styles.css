@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: light;
   --bg: #f4f8f5;
   --panel: #ffffff;
@@ -531,4 +531,71 @@ button:focus-visible {
   .entry-form .edit-cancel {
     grid-column: 1 / -1;
   }
+}
+
+.segmented.compact {
+  margin-top: 0;
+}
+
+.custom-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+
+.pie-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.pie-chart-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+}
+
+.pie-chart {
+  width: min(260px, 100%);
+  height: auto;
+}
+
+.pie-center-label {
+  font-size: 0.72rem;
+  fill: var(--muted);
+  font-weight: 700;
+}
+
+.pie-center-value {
+  font-size: 0.95rem;
+  fill: var(--text);
+  font-weight: 900;
+}
+
+.pie-legend {
+  display: grid;
+  gap: 8px;
+}
+
+.pie-legend-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+.pie-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.pie-legend-row strong {
+  overflow-wrap: anywhere;
+}
+
+.pie-legend-row span:last-child {
+  color: var(--muted);
+  white-space: nowrap;
 }

@@ -1,4 +1,4 @@
-const STORAGE_KEY = "bucket-budget-ledger-v1";
+﻿const STORAGE_KEY = "bucket-budget-ledger-v1";
 
 const defaultBuckets = [
   { id: "life", name: "生活桶", monthlyAllocationAmount: 90000, isRemainderBucket: false, priority: 1, active: true, initialBalance: 0, kind: "spending" },
@@ -37,6 +37,7 @@ const state = {
     transfers: [],
   },
   selectedMonth: "",
+  pieRangeMode: "month",
   entryMode: "expense",
   editing: null,
   deferredInstallPrompt: null,
@@ -85,6 +86,11 @@ const els = {
   categoryAnalysis: document.querySelector("#categoryAnalysis"),
   trendList: document.querySelector("#trendList"),
   bucketUsage: document.querySelector("#bucketUsage"),
+  pieRangeLabel: document.querySelector("#pieRangeLabel"),
+  customPieRange: document.querySelector("#customPieRange"),
+  pieStartDate: document.querySelector("#pieStartDate"),
+  pieEndDate: document.querySelector("#pieEndDate"),
+  expensePie: document.querySelector("#expensePie"),
   settingsForm: document.querySelector("#settingsForm"),
   bucketSettings: document.querySelector("#bucketSettings"),
   exportBtn: document.querySelector("#exportBtn"),
@@ -485,8 +491,88 @@ function renderRatioList(container, rows, total) {
     .join("");
 }
 
+const pieColors = ["#1f7a4d", "#267f87", "#c94f68", "#8f6f19", "#6d5bd0", "#d17a22", "#3d7a99", "#7b8f24", "#9b4d83"];
+
+function expensesBetween(start, end) {
+  return state.data.expenses.filter((record) => record.date >= start && record.date <= end);
+}
+
+function activePieRange() {
+  if (state.pieRangeMode === "year") {
+    const year = state.selectedMonth.slice(0, 4);
+    return { start: `${year}-01-01`, end: `${year}-12-31`, label: `${year} 年` };
+  }
+
+  if (state.pieRangeMode === "custom") {
+    const start = els.pieStartDate.value || monthStart(state.selectedMonth);
+    const end = els.pieEndDate.value || monthEnd(state.selectedMonth);
+    return start <= end
+      ? { start, end, label: `${start} 到 ${end}` }
+      : { start: end, end: start, label: `${end} 到 ${start}` };
+  }
+
+  return { start: monthStart(state.selectedMonth), end: monthEnd(state.selectedMonth), label: `${state.selectedMonth}` };
+}
+
+function compactPieRows(rows) {
+  if (rows.length <= 8) return rows;
+  const head = rows.slice(0, 7);
+  const rest = rows.slice(7).reduce((sum, [, amount]) => sum + amount, 0);
+  return [...head, ["其他分類", rest]];
+}
+
+function renderExpensePie() {
+  document.querySelectorAll("[data-pie-range]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.pieRange === state.pieRangeMode);
+  });
+  els.customPieRange.classList.toggle("hidden", state.pieRangeMode !== "custom");
+
+  const range = activePieRange();
+  const expenses = expensesBetween(range.start, range.end);
+  const rows = compactPieRows(groupedAmounts(expenses, (record) => `${categoryGroups[record.categoryGroup]?.label || record.categoryGroup}：${record.category}`));
+  const total = rows.reduce((sum, [, amount]) => sum + amount, 0);
+  els.pieRangeLabel.textContent = range.label;
+
+  if (!rows.length || !total) {
+    els.expensePie.replaceChildren(els.emptyTemplate.content.cloneNode(true));
+    return;
+  }
+
+  const radius = 70;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const circles = rows
+    .map(([label, amount], index) => {
+      const length = (amount / total) * circumference;
+      const circle = `<circle cx="100" cy="100" r="${radius}" fill="none" stroke="${pieColors[index % pieColors.length]}" stroke-width="34" stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 100 100)"><title>${escapeHtml(label)} ${money.format(amount)}</title></circle>`;
+      offset += length;
+      return circle;
+    })
+    .join("");
+
+  const legend = rows
+    .map(([label, amount], index) => {
+      const percent = Math.round((amount / total) * 100);
+      return `<div class="pie-legend-row"><span class="pie-swatch" style="background:${pieColors[index % pieColors.length]}"></span><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} / ${percent}%</span></div>`;
+    })
+    .join("");
+
+  els.expensePie.innerHTML = `
+    <div class="pie-chart-wrap">
+      <svg class="pie-chart" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(range.label)}支出圓餅圖">
+        <circle cx="100" cy="100" r="${radius}" fill="none" stroke="#e8efea" stroke-width="34"></circle>
+        ${circles}
+        <circle cx="100" cy="100" r="46" fill="#ffffff"></circle>
+        <text x="100" y="94" text-anchor="middle" class="pie-center-label">總支出</text>
+        <text x="100" y="116" text-anchor="middle" class="pie-center-value">${money.format(total)}</text>
+      </svg>
+    </div>
+    <div class="pie-legend">${legend}</div>
+  `;
+}
 function renderReports() {
   renderMonthlyReport();
+  renderExpensePie();
   const records = monthRecords(state.selectedMonth);
   const totalSpent = records.expenses.reduce((sum, record) => sum + Number(record.amount || 0), 0);
   renderRatioList(
@@ -794,6 +880,13 @@ function handleRecordAction(event) {
 function initEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tab)));
   document.querySelectorAll("[data-entry-mode]").forEach((button) => button.addEventListener("click", () => setEntryMode(button.dataset.entryMode)));
+  document.querySelectorAll("[data-pie-range]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.pieRangeMode = button.dataset.pieRange;
+      renderReports();
+    });
+  });
+  [els.pieStartDate, els.pieEndDate].filter(Boolean).forEach((input) => input.addEventListener("change", renderReports));
   els.selectedMonth.addEventListener("change", () => {
     state.selectedMonth = els.selectedMonth.value || currentMonth();
     render();
@@ -801,6 +894,10 @@ function initEvents() {
   els.jumpCurrentMonth.addEventListener("click", () => {
     state.selectedMonth = currentMonth();
     els.selectedMonth.value = state.selectedMonth;
+  if (els.pieStartDate && els.pieEndDate) {
+    els.pieStartDate.value = monthStart(state.selectedMonth);
+    els.pieEndDate.value = todayISO();
+  }
     render();
   });
   els.categoryGroup.addEventListener("change", updateCategorySelectors);
@@ -846,6 +943,10 @@ function init() {
   loadData();
   state.selectedMonth = currentMonth();
   els.selectedMonth.value = state.selectedMonth;
+  if (els.pieStartDate && els.pieEndDate) {
+    els.pieStartDate.value = monthStart(state.selectedMonth);
+    els.pieEndDate.value = todayISO();
+  }
   [els.expenseDate, els.incomeDate, els.transferDate].forEach((input) => {
     input.value = todayISO();
   });

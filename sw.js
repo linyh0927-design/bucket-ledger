@@ -1,9 +1,9 @@
-const CACHE_NAME = "bucket-ledger-static-history-v1";
+﻿const CACHE_NAME = "bucket-ledger-static-pie-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260710-history",
-  "./app.js?v=20260710-history",
+  "./styles.css?v=20260710-pie",
+  "./app.js?v=20260710-pie",
   "./manifest.json",
   "./icon.svg",
 ];

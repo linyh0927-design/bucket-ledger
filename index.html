@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
@@ -7,7 +7,7 @@
     <title>分桶帳本</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=20260710-history" />
+    <link rel="stylesheet" href="styles.css?v=20260710-pie" />
   </head>
   <body>
     <main class="app-shell">
@@ -184,6 +184,28 @@
 
         <section class="panel">
           <div class="section-heading">
+            <h2>支出圓餅圖</h2>
+            <span id="pieRangeLabel">本月</span>
+          </div>
+          <div class="segmented compact" role="tablist" aria-label="圓餅圖區間">
+            <button class="active" data-pie-range="month" type="button">月份</button>
+            <button data-pie-range="year" type="button">年度</button>
+            <button data-pie-range="custom" type="button">自訂</button>
+          </div>
+          <div id="customPieRange" class="custom-range hidden">
+            <label>
+              <span>開始</span>
+              <input id="pieStartDate" type="date" />
+            </label>
+            <label>
+              <span>結束</span>
+              <input id="pieEndDate" type="date" />
+            </label>
+          </div>
+          <div id="expensePie" class="pie-panel"></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
             <h2>12 個月趨勢</h2>
           </div>
           <div id="trendList" class="trend-list"></div>
@@ -239,6 +261,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=20260710-history" defer></script>
+    <script src="app.js?v=20260710-pie" defer></script>
   </body>
 </html>
