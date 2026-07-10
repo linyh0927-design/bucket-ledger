@@ -1,10 +1,13 @@
-﻿const CACHE_NAME = "bucket-ledger-static-pie-v1";
+const CACHE_NAME = "bucket-ledger-static-icon-pie2-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260710-pie",
-  "./app.js?v=20260710-pie",
-  "./manifest.json",
+  "./styles.css?v=20260710-icon-pie2",
+  "./app.js?v=20260710-icon-pie2",
+  "./manifest.json?v=20260710-icon-pie2",
+  "./icon-192.png?v=20260710-icon-pie2",
+  "./icon-512.png?v=20260710-icon-pie2",
+  "./apple-touch-icon.png?v=20260710-icon-pie2",
   "./icon.svg",
 ];
 

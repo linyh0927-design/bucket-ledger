@@ -1,4 +1,4 @@
-﻿const STORAGE_KEY = "bucket-budget-ledger-v1";
+const STORAGE_KEY = "bucket-budget-ledger-v1";
 
 const defaultBuckets = [
   { id: "life", name: "生活桶", monthlyAllocationAmount: 90000, isRemainderBucket: false, priority: 1, active: true, initialBalance: 0, kind: "spending" },
@@ -538,17 +538,16 @@ function renderExpensePie() {
     return;
   }
 
-  const radius = 70;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  const circles = rows
-    .map(([label, amount], index) => {
-      const length = (amount / total) * circumference;
-      const circle = `<circle cx="100" cy="100" r="${radius}" fill="none" stroke="${pieColors[index % pieColors.length]}" stroke-width="34" stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 100 100)"><title>${escapeHtml(label)} ${money.format(amount)}</title></circle>`;
-      offset += length;
-      return circle;
+  let currentAngle = 0;
+  const gradientStops = rows
+    .map(([, amount], index) => {
+      const start = currentAngle;
+      const end = start + (amount / total) * 360;
+      currentAngle = end;
+      const color = pieColors[index % pieColors.length];
+      return `${color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
     })
-    .join("");
+    .join(", ");
 
   const legend = rows
     .map(([label, amount], index) => {
@@ -559,13 +558,12 @@ function renderExpensePie() {
 
   els.expensePie.innerHTML = `
     <div class="pie-chart-wrap">
-      <svg class="pie-chart" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(range.label)}支出圓餅圖">
-        <circle cx="100" cy="100" r="${radius}" fill="none" stroke="#e8efea" stroke-width="34"></circle>
-        ${circles}
-        <circle cx="100" cy="100" r="46" fill="#ffffff"></circle>
-        <text x="100" y="94" text-anchor="middle" class="pie-center-label">總支出</text>
-        <text x="100" y="116" text-anchor="middle" class="pie-center-value">${money.format(total)}</text>
-      </svg>
+      <div class="pie-disc" role="img" aria-label="${escapeHtml(range.label)}支出圓餅圖" style="background: conic-gradient(${gradientStops});">
+        <div class="pie-hole">
+          <span>總支出</span>
+          <strong>${money.format(total)}</strong>
+        </div>
+      </div>
     </div>
     <div class="pie-legend">${legend}</div>
   `;
