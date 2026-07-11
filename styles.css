@@ -555,13 +555,17 @@ button:focus-visible {
   min-height: 220px;
 }
 
+.pie-canvas,
 .pie-disc {
   width: min(260px, 72vw);
   aspect-ratio: 1;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: block;
   box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.08), 0 12px 28px rgba(31, 122, 77, 0.14);
+}
+
+.pie-disc-fallback {
+  display: none;
 }
 
 .pie-hole {

@@ -8,12 +8,14 @@ const defaultBuckets = [
   { id: "savings", name: "儲蓄", monthlyAllocationAmount: 0, isRemainderBucket: true, priority: 5, active: true, initialBalance: 0, kind: "saving" },
 ];
 
+const lifeCategories = ["房租", "孝親", "學貸", "飲食", "日用品", "交通", "水電瓦斯", "電話網路", "社交娛樂", "成長學習", "醫療", "其他"];
+
 const categoryGroups = {
   life: {
     label: "生活",
     defaultBucketId: "life",
     defaultCategory: "飲食",
-    categories: ["房租", "孝親", "學貸", "飲食", "日用品", "交通", "水電瓦斯", "電話網路", "社交娛樂", "成長學習", "醫療", "其他"],
+    categories: lifeCategories,
   },
   travel: {
     label: "旅遊",
@@ -24,8 +26,8 @@ const categoryGroups = {
   large: {
     label: "大額支出",
     defaultBucketId: "large",
-    defaultCategory: "大額支出",
-    categories: ["大額支出"],
+    defaultCategory: "飲食",
+    categories: lifeCategories,
   },
 };
 
@@ -521,6 +523,58 @@ function compactPieRows(rows) {
   return [...head, ["其他分類", rest]];
 }
 
+function drawExpensePieCanvas(rows, total) {
+  requestAnimationFrame(() => {
+    const canvas = document.querySelector("#expensePieCanvas");
+    const fallback = document.querySelector(".pie-disc-fallback");
+    if (!canvas) return;
+
+    const size = 260;
+    const pixelRatio = window.devicePixelRatio || 1;
+    canvas.width = size * pixelRatio;
+    canvas.height = size * pixelRatio;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      canvas.hidden = true;
+      if (fallback) fallback.style.display = "block";
+      return;
+    }
+    if (fallback) fallback.style.display = "none";
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+
+    const center = size / 2;
+    const radius = 124;
+    let startAngle = -Math.PI / 2;
+    rows.forEach(([, amount], index) => {
+      const endAngle = startAngle + (amount / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(center, center);
+      ctx.arc(center, center, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = pieColors[index % pieColors.length];
+      ctx.fill();
+      startAngle = endAngle;
+    });
+
+    ctx.beginPath();
+    ctx.arc(center, center, 62, 0, Math.PI * 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#ffffff";
+    ctx.fill();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "#6b7280";
+    ctx.font = "800 12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillText("總支出", center, center - 13);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--text").trim() || "#17201b";
+    ctx.font = "900 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillText(money.format(total), center, center + 11);
+  });
+}
 function renderExpensePie() {
   document.querySelectorAll("[data-pie-range]").forEach((button) => {
     button.classList.toggle("active", button.dataset.pieRange === state.pieRangeMode);
@@ -558,16 +612,14 @@ function renderExpensePie() {
 
   els.expensePie.innerHTML = `
     <div class="pie-chart-wrap">
-      <div class="pie-disc" role="img" aria-label="${escapeHtml(range.label)}支出圓餅圖" style="background: conic-gradient(${gradientStops});">
-        <div class="pie-hole">
-          <span>總支出</span>
-          <strong>${money.format(total)}</strong>
-        </div>
-      </div>
+      <canvas id="expensePieCanvas" class="pie-canvas" role="img" aria-label="${escapeHtml(range.label)}支出圓餅圖"></canvas>
+      <div class="pie-disc pie-disc-fallback" aria-hidden="true" style="background: conic-gradient(${gradientStops});"></div>
     </div>
     <div class="pie-legend">${legend}</div>
   `;
+  drawExpensePieCanvas(rows, total);
 }
+
 function renderReports() {
   renderMonthlyReport();
   renderExpensePie();
@@ -658,7 +710,7 @@ function updateCategorySelectors() {
   els.expenseCategory.innerHTML = group.categories.map((category) => `<option value="${category}">${escapeHtml(category)}</option>`).join("");
   els.expenseCategory.value = group.defaultCategory;
   els.expenseBucket.innerHTML = bucketOptions(group.defaultBucketId);
-  els.categoryLabel.classList.toggle("hidden", els.categoryGroup.value === "large");
+  els.categoryLabel.classList.remove("hidden");
 }
 
 function render() {
@@ -706,7 +758,7 @@ function addExpense(event) {
     date: els.expenseDate.value,
     amount,
     categoryGroup: els.categoryGroup.value,
-    category: els.categoryGroup.value === "large" ? "大額支出" : els.expenseCategory.value,
+    category: els.expenseCategory.value,
     itemName: els.expenseItem.value.trim(),
     bucketId: els.expenseBucket.value || group.defaultBucketId,
     note: "",
@@ -930,13 +982,19 @@ function initEvents() {
 async function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      await navigator.serviceWorker.register("sw.js");
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      const registration = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+      await registration.update();
     } catch {
       // The app can still run without offline caching in local previews.
     }
   }
 }
-
 function init() {
   loadData();
   state.selectedMonth = currentMonth();
