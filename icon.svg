@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="日常帳本">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="分桶帳本金錢圖示">
   <rect width="512" height="512" rx="112" fill="#1f7a4d"/>
-  <rect x="126" y="104" width="260" height="304" rx="32" fill="#ffffff"/>
-  <path d="M168 178h176M168 244h176M168 310h96" stroke="#1f7a4d" stroke-width="28" stroke-linecap="round"/>
-  <circle cx="328" cy="326" r="42" fill="#dff3e6"/>
-  <path d="M310 326l14 14 28-34" fill="none" stroke="#155f3b" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="166" fill="#f6fbf7"/>
+  <circle cx="256" cy="256" r="132" fill="#dff3e6"/>
+  <path d="M256 132v248" stroke="#155f3b" stroke-width="34" stroke-linecap="round"/>
+  <path d="M322 184c-21-22-60-32-94-18-32 13-46 45-31 70 12 20 37 27 68 35 34 9 65 20 65 58 0 43-43 70-91 64-30-4-56-18-74-39" fill="none" stroke="#155f3b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

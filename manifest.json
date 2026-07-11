@@ -8,13 +8,13 @@
   "theme_color": "#1f7a4d",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "icon-dollar-192-20260711.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "icon-dollar-512-20260711.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
