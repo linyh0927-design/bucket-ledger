@@ -1,11 +1,12 @@
 const STORAGE_KEY = "bucket-budget-ledger-v1";
 
 const defaultBuckets = [
-  { id: "life", name: "生活桶", monthlyAllocationAmount: 90000, isRemainderBucket: false, priority: 1, active: true, initialBalance: 0, kind: "spending" },
-  { id: "etf", name: "ETF", monthlyAllocationAmount: 50000, isRemainderBucket: false, priority: 2, active: true, initialBalance: 0, kind: "investment" },
-  { id: "travel", name: "旅遊桶", monthlyAllocationAmount: 25000, isRemainderBucket: false, priority: 3, active: true, initialBalance: 0, kind: "spending" },
-  { id: "large", name: "大額支出桶", monthlyAllocationAmount: 10000, isRemainderBucket: false, priority: 4, active: true, initialBalance: 0, kind: "spending" },
-  { id: "savings", name: "儲蓄", monthlyAllocationAmount: 0, isRemainderBucket: true, priority: 5, active: true, initialBalance: 0, kind: "saving" },
+  { id: "fixed", name: "固定開銷桶", monthlyAllocationAmount: 0, isRemainderBucket: false, priority: 1, active: true, initialBalance: 0, kind: "spending" },
+  { id: "life", name: "生活桶", monthlyAllocationAmount: 90000, isRemainderBucket: false, priority: 2, active: true, initialBalance: 0, kind: "spending" },
+  { id: "etf", name: "ETF", monthlyAllocationAmount: 50000, isRemainderBucket: false, priority: 3, active: true, initialBalance: 0, kind: "investment" },
+  { id: "travel", name: "旅遊桶", monthlyAllocationAmount: 25000, isRemainderBucket: false, priority: 4, active: true, initialBalance: 0, kind: "spending" },
+  { id: "large", name: "大額支出桶", monthlyAllocationAmount: 10000, isRemainderBucket: false, priority: 5, active: true, initialBalance: 0, kind: "spending" },
+  { id: "savings", name: "儲蓄", monthlyAllocationAmount: 0, isRemainderBucket: true, priority: 6, active: true, initialBalance: 0, kind: "saving" },
 ];
 
 const lifeCategories = ["房租", "孝親", "學貸", "飲食", "日用品", "交通", "水電瓦斯", "電話網路", "社交娛樂", "成長學習", "醫療", "其他"];
@@ -156,7 +157,15 @@ function cloneBuckets() {
 function normalizeData(raw) {
   const data = raw && typeof raw === "object" ? raw : {};
   const savedBuckets = Array.isArray(data.buckets) ? data.buckets : [];
-  const buckets = cloneBuckets().map((bucket) => ({ ...bucket, ...(savedBuckets.find((item) => item.id === bucket.id) || {}) }));
+  const buckets = cloneBuckets().map((bucket) => {
+    const saved = savedBuckets.find((item) => item.id === bucket.id) || {};
+    return {
+      ...bucket,
+      monthlyAllocationAmount: saved.monthlyAllocationAmount ?? bucket.monthlyAllocationAmount,
+      initialBalance: saved.initialBalance ?? bucket.initialBalance,
+      active: saved.active ?? bucket.active,
+    };
+  });
   return {
     buckets,
     incomes: Array.isArray(data.incomes) ? data.incomes : [],
@@ -164,7 +173,6 @@ function normalizeData(raw) {
     transfers: Array.isArray(data.transfers) ? data.transfers : [],
   };
 }
-
 function loadData() {
   try {
     state.data = normalizeData(JSON.parse(localStorage.getItem(STORAGE_KEY)));
