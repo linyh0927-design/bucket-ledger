@@ -98,6 +98,12 @@ const els = {
   bucketSettings: document.querySelector("#bucketSettings"),
   exportBtn: document.querySelector("#exportBtn"),
   importInput: document.querySelector("#importInput"),
+  bucketDetailOverlay: document.querySelector("#bucketDetailOverlay"),
+  bucketDetailClose: document.querySelector("#bucketDetailClose"),
+  bucketDetailRange: document.querySelector("#bucketDetailRange"),
+  bucketDetailTitle: document.querySelector("#bucketDetailTitle"),
+  bucketDetailSummary: document.querySelector("#bucketDetailSummary"),
+  bucketDetailContent: document.querySelector("#bucketDetailContent"),
   emptyTemplate: document.querySelector("#emptyTemplate"),
 };
 
@@ -343,7 +349,7 @@ function renderDashboard() {
     .map(({ bucket, allocatedIn, spent, transferIn, transferOut }) => {
       const balance = balances[bucket.id] || 0;
       return `
-        <article class="bucket-card">
+        <article class="bucket-card interactive-card" data-bucket-detail-id="${escapeHtml(bucket.id)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(bucket.name)} 支出明細">
           <header>
             <div>
               <strong>${escapeHtml(bucket.name)}</strong>
@@ -459,7 +465,7 @@ function renderMonthlyReport() {
   els.reportMonthLabel.textContent = state.selectedMonth;
   els.monthlyReport.innerHTML = snapshot
     .map(({ bucket, openingBalance, allocatedIn, spent, transferIn, transferOut, closingBalance }) => `
-      <article class="report-row">
+      <article class="report-row interactive-card" data-bucket-detail-id="${escapeHtml(bucket.id)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(bucket.name)} 支出明細">
         <header><strong>${escapeHtml(bucket.name)}</strong><span class="${closingBalance < 0 ? "negative" : ""}">${money.format(closingBalance)}</span></header>
         <div class="report-grid">
           <span>期初 <b>${money.format(openingBalance)}</b></span>
@@ -472,6 +478,69 @@ function renderMonthlyReport() {
       </article>
     `)
     .join("");
+}
+
+function recordsForBucketDetail(bucketId, month) {
+  const records = monthRecords(month);
+  const expenses = records.expenses
+    .filter((record) => record.bucketId === bucketId)
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const transfersOut = records.transfers
+    .filter((record) => record.fromBucketId === bucketId)
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return { expenses, transfersOut };
+}
+
+function renderBucketDetailList(title, records, renderItem) {
+  if (!records.length) {
+    return `<section class="detail-section"><h3>${escapeHtml(title)}</h3><div class="empty-state compact"><strong>沒有紀錄</strong><p>這個月份沒有${escapeHtml(title)}。</p></div></section>`;
+  }
+  return `
+    <section class="detail-section">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="detail-list">${records.map(renderItem).join("")}</div>
+    </section>
+  `;
+}
+
+function openBucketDetail(bucketId) {
+  const bucket = bucketById(bucketId);
+  if (!bucket) return;
+  const month = state.selectedMonth;
+  const { expenses, transfersOut } = recordsForBucketDetail(bucketId, month);
+  const spentTotal = expenses.reduce((sum, record) => sum + Number(record.amount || 0), 0);
+  const transferOutTotal = transfersOut.reduce((sum, record) => sum + Number(record.amount || 0), 0);
+
+  els.bucketDetailRange.textContent = `${month} 桶明細`;
+  els.bucketDetailTitle.textContent = bucket.name;
+  els.bucketDetailSummary.innerHTML = `
+    <article><span>支出合計</span><strong>${money.format(spentTotal)}</strong></article>
+    <article><span>轉出合計</span><strong>${money.format(transferOutTotal)}</strong></article>
+  `;
+  els.bucketDetailContent.innerHTML = `
+    ${renderBucketDetailList("支出明細", expenses, (record) => `
+      <article class="detail-item expense">
+        <div><strong>${escapeHtml(record.itemName || record.category)}</strong><span>${escapeHtml(record.date)}｜${escapeHtml(categoryGroups[record.categoryGroup]?.label || record.categoryGroup)} / ${escapeHtml(record.category)}</span></div>
+        <b>-${money.format(record.amount)}</b>
+      </article>
+    `)}
+    ${renderBucketDetailList("轉出紀錄", transfersOut, (record) => `
+      <article class="detail-item transfer">
+        <div><strong>轉到 ${escapeHtml(bucketById(record.toBucketId)?.name || record.toBucketId)}</strong><span>${escapeHtml(record.date)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</span></div>
+        <b>-${money.format(record.amount)}</b>
+      </article>
+    `)}
+  `;
+  els.bucketDetailOverlay.classList.remove("hidden");
+  els.bucketDetailOverlay.setAttribute("aria-hidden", "false");
+  els.bucketDetailClose.focus();
+}
+
+function closeBucketDetail() {
+  els.bucketDetailOverlay.classList.add("hidden");
+  els.bucketDetailOverlay.setAttribute("aria-hidden", "true");
 }
 
 function groupedAmounts(records, keyFn) {
@@ -935,6 +1004,20 @@ function handleRecordAction(event) {
   if (deleteButton) deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
 }
 
+function handleBucketDetailAction(event) {
+  const card = event.target.closest("[data-bucket-detail-id]");
+  if (!card) return;
+  openBucketDetail(card.dataset.bucketDetailId);
+}
+
+function handleBucketDetailKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest("[data-bucket-detail-id]");
+  if (!card) return;
+  event.preventDefault();
+  openBucketDetail(card.dataset.bucketDetailId);
+}
+
 function initEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => setActiveTab(button.dataset.tab)));
   document.querySelectorAll("[data-entry-mode]").forEach((button) => button.addEventListener("click", () => setEntryMode(button.dataset.entryMode)));
@@ -956,7 +1039,7 @@ function initEvents() {
     els.pieStartDate.value = monthStart(state.selectedMonth);
     els.pieEndDate.value = todayISO();
   }
-    render();
+  render();
   });
   els.categoryGroup.addEventListener("change", updateCategorySelectors);
   els.incomeAmount.addEventListener("input", renderAllocationPreview);
@@ -968,6 +1051,17 @@ function initEvents() {
   els.importInput.addEventListener("change", () => importData(els.importInput.files[0]));
   els.recentRecords.addEventListener("click", handleRecordAction);
   els.historyRecords.addEventListener("click", handleRecordAction);
+  els.bucketCards.addEventListener("click", handleBucketDetailAction);
+  els.bucketCards.addEventListener("keydown", handleBucketDetailKeydown);
+  els.monthlyReport.addEventListener("click", handleBucketDetailAction);
+  els.monthlyReport.addEventListener("keydown", handleBucketDetailKeydown);
+  els.bucketDetailClose.addEventListener("click", closeBucketDetail);
+  els.bucketDetailOverlay.addEventListener("click", (event) => {
+    if (event.target === els.bucketDetailOverlay) closeBucketDetail();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.bucketDetailOverlay.classList.contains("hidden")) closeBucketDetail();
+  });
   [els.expenseCancelEdit, els.incomeCancelEdit, els.transferCancelEdit].forEach((button) => {
     button.addEventListener("click", clearEditMode);
   });
