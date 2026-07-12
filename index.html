@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1f7a4d" />
     <title>分桶帳本</title>
-    <link rel="manifest" href="manifest.json?v=20260712-bucketdetail" />
-    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260712-bucketdetail" type="image/png" />
+    <link rel="manifest" href="manifest.json?v=20260712-detailsort" />
+    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260712-detailsort" type="image/png" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-dollar-20260711.png" />
     <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon-precomposed-dollar-20260711.png" />
-    <link rel="stylesheet" href="styles.css?v=20260712-bucketdetail" />
+    <link rel="stylesheet" href="styles.css?v=20260712-detailsort" />
   </head>
   <body>
     <main class="app-shell">
@@ -259,6 +259,10 @@
           <button id="bucketDetailClose" class="ghost-button" type="button">關閉</button>
         </header>
         <div id="bucketDetailSummary" class="detail-summary"></div>
+        <div id="bucketDetailSort" class="detail-sort segmented compact" role="tablist" aria-label="桶明細排序">
+          <button class="active" data-bucket-detail-sort="date" type="button">日期新到舊</button>
+          <button data-bucket-detail-sort="amount" type="button">金額大到小</button>
+        </div>
         <div id="bucketDetailContent" class="detail-content"></div>
       </section>
     </div>
@@ -278,6 +282,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=20260712-bucketdetail" defer></script>
+    <script src="app.js?v=20260712-detailsort" defer></script>
   </body>
 </html>

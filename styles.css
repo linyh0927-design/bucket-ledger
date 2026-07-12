@@ -728,3 +728,10 @@ button:focus-visible {
   padding: 10px;
   text-align: left;
 }
+.detail-sort {
+  margin: 0 0 12px;
+}
+
+.detail-sort button {
+  font-size: 0.9rem;
+}

@@ -41,6 +41,8 @@ const state = {
   },
   selectedMonth: "",
   pieRangeMode: "month",
+  bucketDetailSort: "date",
+  activeBucketDetailId: null,
   entryMode: "expense",
   editing: null,
   deferredInstallPrompt: null,
@@ -104,6 +106,7 @@ const els = {
   bucketDetailTitle: document.querySelector("#bucketDetailTitle"),
   bucketDetailSummary: document.querySelector("#bucketDetailSummary"),
   bucketDetailContent: document.querySelector("#bucketDetailContent"),
+  bucketDetailSort: document.querySelector("#bucketDetailSort"),
   emptyTemplate: document.querySelector("#emptyTemplate"),
 };
 
@@ -480,16 +483,19 @@ function renderMonthlyReport() {
     .join("");
 }
 
+function sortBucketDetailRecords(records) {
+  return records.slice().sort((a, b) => {
+    if (state.bucketDetailSort === "amount") {
+      return Number(b.amount || 0) - Number(a.amount || 0) || b.date.localeCompare(a.date);
+    }
+    return b.date.localeCompare(a.date) || Number(b.amount || 0) - Number(a.amount || 0);
+  });
+}
+
 function recordsForBucketDetail(bucketId, month) {
   const records = monthRecords(month);
-  const expenses = records.expenses
-    .filter((record) => record.bucketId === bucketId)
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const transfersOut = records.transfers
-    .filter((record) => record.fromBucketId === bucketId)
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const expenses = sortBucketDetailRecords(records.expenses.filter((record) => record.bucketId === bucketId));
+  const transfersOut = sortBucketDetailRecords(records.transfers.filter((record) => record.fromBucketId === bucketId));
   return { expenses, transfersOut };
 }
 
@@ -505,7 +511,7 @@ function renderBucketDetailList(title, records, renderItem) {
   `;
 }
 
-function openBucketDetail(bucketId) {
+function renderBucketDetail(bucketId) {
   const bucket = bucketById(bucketId);
   if (!bucket) return;
   const month = state.selectedMonth;
@@ -513,6 +519,9 @@ function openBucketDetail(bucketId) {
   const spentTotal = expenses.reduce((sum, record) => sum + Number(record.amount || 0), 0);
   const transferOutTotal = transfersOut.reduce((sum, record) => sum + Number(record.amount || 0), 0);
 
+  document.querySelectorAll("[data-bucket-detail-sort]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.bucketDetailSort === state.bucketDetailSort);
+  });
   els.bucketDetailRange.textContent = `${month} 桶明細`;
   els.bucketDetailTitle.textContent = bucket.name;
   els.bucketDetailSummary.innerHTML = `
@@ -533,11 +542,15 @@ function openBucketDetail(bucketId) {
       </article>
     `)}
   `;
+}
+
+function openBucketDetail(bucketId) {
+  state.activeBucketDetailId = bucketId;
+  renderBucketDetail(bucketId);
   els.bucketDetailOverlay.classList.remove("hidden");
   els.bucketDetailOverlay.setAttribute("aria-hidden", "false");
   els.bucketDetailClose.focus();
 }
-
 function closeBucketDetail() {
   els.bucketDetailOverlay.classList.add("hidden");
   els.bucketDetailOverlay.setAttribute("aria-hidden", "true");
@@ -1004,6 +1017,12 @@ function handleRecordAction(event) {
   if (deleteButton) deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
 }
 
+function handleBucketDetailSort(event) {
+  const button = event.target.closest("[data-bucket-detail-sort]");
+  if (!button || !state.activeBucketDetailId) return;
+  state.bucketDetailSort = button.dataset.bucketDetailSort;
+  renderBucketDetail(state.activeBucketDetailId);
+}
 function handleBucketDetailAction(event) {
   const card = event.target.closest("[data-bucket-detail-id]");
   if (!card) return;
@@ -1055,6 +1074,7 @@ function initEvents() {
   els.bucketCards.addEventListener("keydown", handleBucketDetailKeydown);
   els.monthlyReport.addEventListener("click", handleBucketDetailAction);
   els.monthlyReport.addEventListener("keydown", handleBucketDetailKeydown);
+  els.bucketDetailSort.addEventListener("click", handleBucketDetailSort);
   els.bucketDetailClose.addEventListener("click", closeBucketDetail);
   els.bucketDetailOverlay.addEventListener("click", (event) => {
     if (event.target === els.bucketDetailOverlay) closeBucketDetail();
