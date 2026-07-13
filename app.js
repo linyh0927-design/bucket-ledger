@@ -12,6 +12,12 @@ const defaultBuckets = [
 const lifeCategories = ["房租", "孝親", "學貸", "飲食", "日用品", "交通", "水電瓦斯", "電話網路", "社交娛樂", "成長學習", "醫療", "其他"];
 
 const categoryGroups = {
+  fixed: {
+    label: "固定開銷",
+    defaultBucketId: "fixed",
+    defaultCategory: "房租",
+    categories: lifeCategories,
+  },
   life: {
     label: "生活",
     defaultBucketId: "life",
