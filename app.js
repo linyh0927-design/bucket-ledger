@@ -10,6 +10,7 @@ const defaultBuckets = [
 ];
 
 const lifeCategories = ["房租", "孝親", "學貸", "飲食", "日用品", "交通", "水電瓦斯", "電話網路", "社交娛樂", "成長學習", "醫療", "其他"];
+const DEFAULT_EXPENSE_GROUP = "life";
 
 const categoryGroups = {
   fixed: {
@@ -793,6 +794,7 @@ function renderSelectors() {
   els.categoryGroup.innerHTML = Object.entries(categoryGroups)
     .map(([id, group]) => `<option value="${id}">${escapeHtml(group.label)}</option>`)
     .join("");
+  els.categoryGroup.value = categoryGroups[DEFAULT_EXPENSE_GROUP] ? DEFAULT_EXPENSE_GROUP : Object.keys(categoryGroups)[0];
   [els.expenseBucket, els.fromBucket, els.toBucket].forEach((select) => {
     select.innerHTML = bucketOptions();
   });

@@ -1,15 +1,15 @@
-const CACHE_NAME = "bucket-ledger-static-fixedentry-v1";
+const CACHE_NAME = "bucket-ledger-static-defaultlife-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260713-fixedentry",
-  "./app.js?v=20260713-fixedentry",
-  "./manifest.json?v=20260713-fixedentry",
-  "./icon-dollar-192-20260711.png?v=20260713-fixedentry",
-  "./icon-dollar-512-20260711.png?v=20260713-fixedentry",
+  "./styles.css?v=20260716-defaultlife",
+  "./app.js?v=20260716-defaultlife",
+  "./manifest.json?v=20260716-defaultlife",
+  "./icon-dollar-192-20260711.png?v=20260716-defaultlife",
+  "./icon-dollar-512-20260711.png?v=20260716-defaultlife",
   "./apple-touch-icon-dollar-20260711.png",
   "./apple-touch-icon-precomposed-dollar-20260711.png",
-  "./icon.svg?v=20260713-fixedentry",
+  "./icon.svg?v=20260716-defaultlife",
 ];
 
 self.addEventListener("install", (event) => {
