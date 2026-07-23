@@ -1,15 +1,15 @@
-const CACHE_NAME = "bucket-ledger-static-defaultlife-v1";
+const CACHE_NAME = "bucket-ledger-static-calendar-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260716-defaultlife",
-  "./app.js?v=20260716-defaultlife",
-  "./manifest.json?v=20260716-defaultlife",
-  "./icon-dollar-192-20260711.png?v=20260716-defaultlife",
-  "./icon-dollar-512-20260711.png?v=20260716-defaultlife",
+  "./styles.css?v=20260723-calendar",
+  "./app.js?v=20260723-calendar",
+  "./manifest.json?v=20260723-calendar",
+  "./icon-dollar-192-20260711.png?v=20260723-calendar",
+  "./icon-dollar-512-20260711.png?v=20260723-calendar",
   "./apple-touch-icon-dollar-20260711.png",
   "./apple-touch-icon-precomposed-dollar-20260711.png",
-  "./icon.svg?v=20260716-defaultlife",
+  "./icon.svg?v=20260723-calendar",
 ];
 
 self.addEventListener("install", (event) => {

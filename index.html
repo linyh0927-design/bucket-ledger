@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1f7a4d" />
     <title>分桶帳本</title>
-    <link rel="manifest" href="manifest.json?v=20260716-defaultlife" />
-    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260716-defaultlife" type="image/png" />
+    <link rel="manifest" href="manifest.json?v=20260723-calendar" />
+    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260723-calendar" type="image/png" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-dollar-20260711.png" />
     <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon-precomposed-dollar-20260711.png" />
-    <link rel="stylesheet" href="styles.css?v=20260716-defaultlife" />
+    <link rel="stylesheet" href="styles.css?v=20260723-calendar" />
   </head>
   <body>
     <main class="app-shell">
@@ -159,6 +159,21 @@
       <section id="historyView" class="view" data-view="history">
         <section class="panel">
           <div class="section-heading">
+            <h2>月曆</h2>
+            <span id="calendarMonthLabel"></span>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+          </div>
+          <div id="historyCalendar" class="calendar-grid" aria-label="每日帳務月曆"></div>
+          <div class="section-heading day-heading">
+            <h2 id="selectedDayTitle">當日紀錄</h2>
+            <span id="selectedDayCount">0 筆</span>
+          </div>
+          <div id="selectedDayRecords" class="records-list"></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
             <h2>月份紀錄</h2>
             <span id="historyCount">0 筆</span>
           </div>
@@ -282,6 +297,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=20260716-defaultlife" defer></script>
+    <script src="app.js?v=20260723-calendar" defer></script>
   </body>
 </html>

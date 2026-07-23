@@ -47,6 +47,7 @@ const state = {
     transfers: [],
   },
   selectedMonth: "",
+  selectedCalendarDate: "",
   pieRangeMode: "month",
   bucketDetailSort: "date",
   activeBucketDetailId: null,
@@ -93,6 +94,11 @@ const els = {
   recentRecords: document.querySelector("#recentRecords"),
   historyRecords: document.querySelector("#historyRecords"),
   historyCount: document.querySelector("#historyCount"),
+  calendarMonthLabel: document.querySelector("#calendarMonthLabel"),
+  historyCalendar: document.querySelector("#historyCalendar"),
+  selectedDayTitle: document.querySelector("#selectedDayTitle"),
+  selectedDayCount: document.querySelector("#selectedDayCount"),
+  selectedDayRecords: document.querySelector("#selectedDayRecords"),
   reportMonthLabel: document.querySelector("#reportMonthLabel"),
   monthlyReport: document.querySelector("#monthlyReport"),
   categoryAnalysis: document.querySelector("#categoryAnalysis"),
@@ -419,7 +425,64 @@ function renderRecentRecords() {
   els.recentRecords.innerHTML = records.map(renderRecord).join("");
 }
 
+function ensureCalendarDate() {
+  if (state.selectedCalendarDate?.startsWith(state.selectedMonth)) return;
+  state.selectedCalendarDate = state.selectedMonth === currentMonth() ? todayISO() : monthStart(state.selectedMonth);
+}
+
+function recordsForDate(date) {
+  return combinedRecords({
+    incomes: state.data.incomes.filter((item) => item.date === date),
+    expenses: state.data.expenses.filter((item) => item.date === date),
+    transfers: state.data.transfers.filter((item) => item.date === date),
+  });
+}
+
+function renderHistoryCalendar() {
+  ensureCalendarDate();
+  const [year, month] = state.selectedMonth.split("-").map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const blankDays = firstDay.getDay();
+  const daysInMonth = Number(monthEnd(state.selectedMonth).slice(8));
+  const today = todayISO();
+  els.calendarMonthLabel.textContent = state.selectedMonth;
+
+  const blanks = Array.from({ length: blankDays }, () => `<div class="calendar-empty" aria-hidden="true"></div>`).join("");
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = String(index + 1).padStart(2, "0");
+    const date = `${state.selectedMonth}-${day}`;
+    const records = recordsForDate(date);
+    const spent = records.filter((record) => record.recordType === "expense").reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const income = records.filter((record) => record.recordType === "income").reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const hasRecords = records.length > 0;
+    const summary = hasRecords ? `${records.length} 筆${spent ? ` / ${money.format(spent)}` : income ? ` / +${money.format(income)}` : ""}` : "";
+    return `
+      <button class="calendar-day ${date === state.selectedCalendarDate ? "selected" : ""} ${date === today ? "today" : ""} ${hasRecords ? "has-records" : ""}" data-calendar-date="${date}" type="button" aria-label="查看 ${date} 的記帳紀錄">
+        <strong>${index + 1}</strong>
+        <span>${escapeHtml(summary)}</span>
+      </button>
+    `;
+  }).join("");
+
+  els.historyCalendar.innerHTML = blanks + days;
+}
+
+function renderSelectedDayRecords() {
+  ensureCalendarDate();
+  const records = recordsForDate(state.selectedCalendarDate);
+  els.selectedDayTitle.textContent = `${state.selectedCalendarDate} 紀錄`;
+  els.selectedDayCount.textContent = `${records.length} 筆`;
+
+  if (!records.length) {
+    els.selectedDayRecords.replaceChildren(els.emptyTemplate.content.cloneNode(true));
+    return;
+  }
+  els.selectedDayRecords.innerHTML = records.map(renderRecord).join("");
+}
+
 function renderHistoryRecords() {
+  renderHistoryCalendar();
+  renderSelectedDayRecords();
   const records = combinedRecords(monthRecords(state.selectedMonth));
   els.historyCount.textContent = `${records.length} 筆`;
 
@@ -1014,6 +1077,13 @@ function setEntryMode(mode) {
   document.querySelectorAll("[data-entry-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.entryPanel === mode));
 }
 
+function handleCalendarAction(event) {
+  const button = event.target.closest("[data-calendar-date]");
+  if (!button) return;
+  state.selectedCalendarDate = button.dataset.calendarDate;
+  renderHistoryCalendar();
+  renderSelectedDayRecords();
+}
 function handleRecordAction(event) {
   const editButton = event.target.closest("[data-edit-id]");
   if (editButton) {
@@ -1057,16 +1127,18 @@ function initEvents() {
   [els.pieStartDate, els.pieEndDate].filter(Boolean).forEach((input) => input.addEventListener("change", renderReports));
   els.selectedMonth.addEventListener("change", () => {
     state.selectedMonth = els.selectedMonth.value || currentMonth();
+    ensureCalendarDate();
     render();
   });
   els.jumpCurrentMonth.addEventListener("click", () => {
     state.selectedMonth = currentMonth();
     els.selectedMonth.value = state.selectedMonth;
-  if (els.pieStartDate && els.pieEndDate) {
-    els.pieStartDate.value = monthStart(state.selectedMonth);
-    els.pieEndDate.value = todayISO();
-  }
-  render();
+    state.selectedCalendarDate = todayISO();
+    if (els.pieStartDate && els.pieEndDate) {
+      els.pieStartDate.value = monthStart(state.selectedMonth);
+      els.pieEndDate.value = todayISO();
+    }
+    render();
   });
   els.categoryGroup.addEventListener("change", updateCategorySelectors);
   els.incomeAmount.addEventListener("input", renderAllocationPreview);
@@ -1078,6 +1150,8 @@ function initEvents() {
   els.importInput.addEventListener("change", () => importData(els.importInput.files[0]));
   els.recentRecords.addEventListener("click", handleRecordAction);
   els.historyRecords.addEventListener("click", handleRecordAction);
+  els.selectedDayRecords.addEventListener("click", handleRecordAction);
+  els.historyCalendar.addEventListener("click", handleCalendarAction);
   els.bucketCards.addEventListener("click", handleBucketDetailAction);
   els.bucketCards.addEventListener("keydown", handleBucketDetailKeydown);
   els.monthlyReport.addEventListener("click", handleBucketDetailAction);
@@ -1128,6 +1202,7 @@ async function registerServiceWorker() {
 function init() {
   loadData();
   state.selectedMonth = currentMonth();
+  state.selectedCalendarDate = todayISO();
   els.selectedMonth.value = state.selectedMonth;
   if (els.pieStartDate && els.pieEndDate) {
     els.pieStartDate.value = monthStart(state.selectedMonth);

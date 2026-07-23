@@ -735,3 +735,65 @@ button:focus-visible {
 .detail-sort button {
   font-size: 0.9rem;
 }
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-weekdays {
+  margin: 8px 0 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-day,
+.calendar-empty {
+  min-height: 66px;
+  border-radius: 8px;
+}
+
+.calendar-day {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 7px 5px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+}
+
+.calendar-day strong {
+  font-size: 0.92rem;
+}
+
+.calendar-day span {
+  min-height: 1rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.calendar-day.has-records {
+  border-color: rgba(31, 122, 77, 0.35);
+  background: #f7fcf8;
+}
+
+.calendar-day.today strong {
+  color: var(--green-strong);
+}
+
+.calendar-day.selected {
+  border-color: var(--green);
+  background: var(--mint);
+  box-shadow: 0 0 0 2px rgba(31, 122, 77, 0.12);
+}
+
+.day-heading {
+  margin: 14px 0 10px;
+}
