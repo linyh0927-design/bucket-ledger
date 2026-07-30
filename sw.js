@@ -1,15 +1,15 @@
-const CACHE_NAME = "bucket-ledger-static-coveredit-v1";
+const CACHE_NAME = "bucket-ledger-static-bucketstatus-v1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260730-coveredit",
-  "./app.js?v=20260730-coveredit",
-  "./manifest.json?v=20260730-coveredit",
-  "./icon-dollar-192-20260711.png?v=20260730-coveredit",
-  "./icon-dollar-512-20260711.png?v=20260730-coveredit",
+  "./styles.css?v=20260730-bucketstatus",
+  "./app.js?v=20260730-bucketstatus",
+  "./manifest.json?v=20260730-bucketstatus",
+  "./icon-dollar-192-20260711.png?v=20260730-bucketstatus",
+  "./icon-dollar-512-20260711.png?v=20260730-bucketstatus",
   "./apple-touch-icon-dollar-20260711.png",
   "./apple-touch-icon-precomposed-dollar-20260711.png",
-  "./icon.svg?v=20260730-coveredit",
+  "./icon.svg?v=20260730-bucketstatus",
 ];
 
 self.addEventListener("install", (event) => {
