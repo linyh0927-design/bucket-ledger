@@ -1,4 +1,6 @@
 const STORAGE_KEY = "bucket-budget-ledger-v1";
+const AUTO_COVER_TRANSFER_KIND = "auto-cover";
+const AUTO_COVER_TRANSFER_NOTE = "自動補足超支";
 
 const defaultBuckets = [
   { id: "fixed", name: "固定開銷桶", monthlyAllocationAmount: 0, isRemainderBucket: false, priority: 1, active: true, initialBalance: 0, kind: "spending" },
@@ -51,6 +53,7 @@ const state = {
   pieRangeMode: "month",
   bucketDetailSort: "date",
   activeBucketDetailId: null,
+  bucketDetailEditingExpenseId: null,
   entryMode: "expense",
   editing: null,
   deferredInstallPrompt: null,
@@ -244,6 +247,78 @@ function allocateIncome(amount) {
 
 function incomeAllocations(income) {
   return income.allocations && typeof income.allocations === "object" ? income.allocations : allocateIncome(income.amount);
+}
+
+function isAutoCoverTransfer(transfer) {
+  return transfer?.kind === AUTO_COVER_TRANSFER_KIND || (transfer?.systemGenerated && String(transfer.note || "").startsWith(AUTO_COVER_TRANSFER_NOTE));
+}
+
+function compareAutoCoverEvents(a, b) {
+  const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+  if (dateCompare) return dateCompare;
+  if (a.order !== b.order) return a.order - b.order;
+  const createdCompare = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+  if (createdCompare) return createdCompare;
+  return String(a.id || "").localeCompare(String(b.id || ""));
+}
+
+function reconcileAutoCoverTransfers() {
+  const manualTransfers = state.data.transfers.filter((transfer) => !isAutoCoverTransfer(transfer));
+  const balances = Object.fromEntries(state.data.buckets.map((bucket) => [bucket.id, Number(bucket.initialBalance) || 0]));
+  const autoTransfers = [];
+  const events = [
+    ...state.data.incomes.map((record) => ({ ...record, type: "income", order: 0 })),
+    ...manualTransfers.map((record) => ({ ...record, type: "transfer", order: 1 })),
+    ...state.data.expenses.map((record) => ({ ...record, type: "expense", order: 2 })),
+  ].sort(compareAutoCoverEvents);
+
+  events.forEach((event) => {
+    if (event.type === "income") {
+      Object.entries(incomeAllocations(event)).forEach(([bucketId, amount]) => {
+        balances[bucketId] = (balances[bucketId] || 0) + Number(amount || 0);
+      });
+      return;
+    }
+
+    if (event.type === "transfer") {
+      balances[event.fromBucketId] = (balances[event.fromBucketId] || 0) - Number(event.amount || 0);
+      balances[event.toBucketId] = (balances[event.toBucketId] || 0) + Number(event.amount || 0);
+      return;
+    }
+
+    if (event.type !== "expense" || !event.bucketId) return;
+    balances[event.bucketId] = (balances[event.bucketId] || 0) - Number(event.amount || 0);
+    if (event.bucketId === "savings" || balances[event.bucketId] >= 0) return;
+
+    const coverAmount = Number((-balances[event.bucketId]).toFixed(2));
+    if (!coverAmount) return;
+    const label = event.itemName || event.category || "支出";
+    autoTransfers.push({
+      id: `auto-cover-${event.id}`,
+      date: event.date,
+      fromBucketId: "savings",
+      toBucketId: event.bucketId,
+      amount: coverAmount,
+      note: `${AUTO_COVER_TRANSFER_NOTE}：${label}`,
+      kind: AUTO_COVER_TRANSFER_KIND,
+      systemGenerated: true,
+      autoCoverExpenseId: event.id,
+      createdAt: event.createdAt || `${event.date}T23:59:59.000`,
+    });
+    balances.savings = (balances.savings || 0) - coverAmount;
+    balances[event.bucketId] = 0;
+  });
+
+  state.data.transfers = [...manualTransfers, ...autoTransfers].sort((a, b) => {
+    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare) return dateCompare;
+    return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+  });
+}
+
+function persistData() {
+  reconcileAutoCoverTransfers();
+  saveData();
 }
 
 function eventsUntil(date) {
@@ -509,13 +584,13 @@ function renderRecord(record) {
   }
 
   if (record.recordType === "transfer") {
+    const autoCover = isAutoCoverTransfer(record);
     return `
-      <article class="record transfer">
-        <header><strong>桶轉移</strong><span class="amount">${money.format(record.amount)}</span></header>
+      <article class="record transfer ${autoCover ? "auto-transfer" : ""}">
+        <header><strong>${autoCover ? "儲蓄補洞" : "桶轉移"}</strong><span class="amount">${money.format(record.amount)}</span></header>
         <div class="record-meta">${escapeHtml(record.date)}｜${escapeHtml(bucketById(record.fromBucketId)?.name)} → ${escapeHtml(bucketById(record.toBucketId)?.name)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</div>
         <div class="record-actions">
-          <button class="edit-button" data-edit-type="transfer" data-edit-id="${record.id}" type="button">編輯</button>
-          <button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button>
+          ${autoCover ? `<span class="auto-label">系統自動</span>` : `<button class="edit-button" data-edit-type="transfer" data-edit-id="${record.id}" type="button">編輯</button><button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button>`}
         </div>
       </article>
     `;
@@ -569,6 +644,36 @@ function recordsForBucketDetail(bucketId, month) {
   return { expenses, transfersOut };
 }
 
+function renderBucketExpenseItem(record) {
+  const editing = state.bucketDetailEditingExpenseId === record.id;
+  return `
+    <article class="detail-item expense ${editing ? "editing" : ""}">
+      <div>
+        <strong>${escapeHtml(record.itemName || record.category)}</strong>
+        <span>${escapeHtml(record.date)}｜${escapeHtml(categoryGroups[record.categoryGroup]?.label || record.categoryGroup)} / ${escapeHtml(record.category)}｜扣 ${escapeHtml(bucketById(record.bucketId)?.name || record.bucketId)}</span>
+        ${editing ? `
+          <form class="detail-edit-form" data-detail-edit-expense-id="${record.id}">
+            <label>金額
+              <input data-detail-expense-amount type="number" min="1" step="1" value="${Number(record.amount || 0)}" inputmode="numeric" required />
+            </label>
+            <label>扣款桶
+              <select data-detail-expense-bucket required>${bucketOptions(record.bucketId)}</select>
+            </label>
+            <div class="detail-edit-actions">
+              <button class="primary-button" type="submit">儲存</button>
+              <button class="ghost-button" data-detail-edit-cancel type="button">取消</button>
+            </div>
+          </form>
+        ` : ""}
+      </div>
+      <div class="detail-item-side">
+        <b>-${money.format(record.amount)}</b>
+        ${editing ? "" : `<button class="edit-button" data-detail-edit-expense="${record.id}" type="button">快速編輯</button>`}
+      </div>
+    </article>
+  `;
+}
+
 function renderBucketDetailList(title, records, renderItem) {
   if (!records.length) {
     return `<section class="detail-section"><h3>${escapeHtml(title)}</h3><div class="empty-state compact"><strong>沒有紀錄</strong><p>這個月份沒有${escapeHtml(title)}。</p></div></section>`;
@@ -599,12 +704,7 @@ function renderBucketDetail(bucketId) {
     <article><span>轉出合計</span><strong>${money.format(transferOutTotal)}</strong></article>
   `;
   els.bucketDetailContent.innerHTML = `
-    ${renderBucketDetailList("支出明細", expenses, (record) => `
-      <article class="detail-item expense">
-        <div><strong>${escapeHtml(record.itemName || record.category)}</strong><span>${escapeHtml(record.date)}｜${escapeHtml(categoryGroups[record.categoryGroup]?.label || record.categoryGroup)} / ${escapeHtml(record.category)}</span></div>
-        <b>-${money.format(record.amount)}</b>
-      </article>
-    `)}
+    ${renderBucketDetailList("支出明細", expenses, renderBucketExpenseItem)}
     ${renderBucketDetailList("轉出紀錄", transfersOut, (record) => `
       <article class="detail-item transfer">
         <div><strong>轉到 ${escapeHtml(bucketById(record.toBucketId)?.name || record.toBucketId)}</strong><span>${escapeHtml(record.date)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</span></div>
@@ -622,6 +722,8 @@ function openBucketDetail(bucketId) {
   els.bucketDetailClose.focus();
 }
 function closeBucketDetail() {
+  state.activeBucketDetailId = null;
+  state.bucketDetailEditingExpenseId = null;
   els.bucketDetailOverlay.classList.add("hidden");
   els.bucketDetailOverlay.setAttribute("aria-hidden", "true");
 }
@@ -905,7 +1007,7 @@ function addIncome(event) {
       createdAt: new Date().toISOString(),
     });
   }
-  saveData();
+  persistData();
   els.incomeAmount.value = "";
   render();
 }
@@ -935,7 +1037,7 @@ function addExpense(event) {
       createdAt: new Date().toISOString(),
     });
   }
-  saveData();
+  persistData();
   els.expenseAmount.value = "";
   els.expenseItem.value = "";
   render();
@@ -966,7 +1068,7 @@ function addTransfer(event) {
       createdAt: new Date().toISOString(),
     });
   }
-  saveData();
+  persistData();
   els.transferAmount.value = "";
   els.transferNote.value = "";
   render();
@@ -977,7 +1079,7 @@ function deleteRecord(type, id) {
   if (type === "expense") state.data.expenses = state.data.expenses.filter((item) => item.id !== id);
   if (type === "transfer") state.data.transfers = state.data.transfers.filter((item) => item.id !== id);
   if (state.editing?.type === type && state.editing?.id === id) clearEditMode();
-  saveData();
+  persistData();
   render();
 }
 
@@ -1036,7 +1138,7 @@ function saveSettings(event) {
     if (input.dataset.setting === "allocation" && !bucket.isRemainderBucket) bucket.monthlyAllocationAmount = Number(input.value || 0);
     if (input.dataset.setting === "initial") bucket.initialBalance = Number(input.value || 0);
   });
-  saveData();
+  persistData();
   render();
 }
 
@@ -1057,7 +1159,7 @@ async function importData(file) {
   try {
     const parsed = JSON.parse(await file.text());
     state.data = normalizeData(parsed.data || parsed);
-    saveData();
+    persistData();
     render();
   } catch {
     alert("匯入檔案格式不正確。");
@@ -1093,6 +1195,39 @@ function handleRecordAction(event) {
 
   const deleteButton = event.target.closest("[data-delete-id]");
   if (deleteButton) deleteRecord(deleteButton.dataset.deleteType, deleteButton.dataset.deleteId);
+}
+
+function handleBucketDetailContentClick(event) {
+  const editButton = event.target.closest("[data-detail-edit-expense]");
+  if (editButton && state.activeBucketDetailId) {
+    state.bucketDetailEditingExpenseId = editButton.dataset.detailEditExpense;
+    renderBucketDetail(state.activeBucketDetailId);
+    return;
+  }
+
+  if (event.target.closest("[data-detail-edit-cancel]") && state.activeBucketDetailId) {
+    state.bucketDetailEditingExpenseId = null;
+    renderBucketDetail(state.activeBucketDetailId);
+  }
+}
+
+function handleBucketDetailContentSubmit(event) {
+  const form = event.target.closest("[data-detail-edit-expense-id]");
+  if (!form) return;
+  event.preventDefault();
+  const record = state.data.expenses.find((item) => item.id === form.dataset.detailEditExpenseId);
+  if (!record) return;
+  const amount = Number(form.querySelector("[data-detail-expense-amount]")?.value || 0);
+  const bucketId = form.querySelector("[data-detail-expense-bucket]")?.value;
+  if (!amount || !bucketId) return;
+  record.amount = amount;
+  record.bucketId = bucketId;
+  state.bucketDetailEditingExpenseId = null;
+  persistData();
+  render();
+  if (state.activeBucketDetailId && !els.bucketDetailOverlay.classList.contains("hidden")) {
+    renderBucketDetail(state.activeBucketDetailId);
+  }
 }
 
 function handleBucketDetailSort(event) {
@@ -1156,6 +1291,8 @@ function initEvents() {
   els.bucketCards.addEventListener("keydown", handleBucketDetailKeydown);
   els.monthlyReport.addEventListener("click", handleBucketDetailAction);
   els.monthlyReport.addEventListener("keydown", handleBucketDetailKeydown);
+  els.bucketDetailContent.addEventListener("click", handleBucketDetailContentClick);
+  els.bucketDetailContent.addEventListener("submit", handleBucketDetailContentSubmit);
   els.bucketDetailSort.addEventListener("click", handleBucketDetailSort);
   els.bucketDetailClose.addEventListener("click", closeBucketDetail);
   els.bucketDetailOverlay.addEventListener("click", (event) => {
@@ -1199,8 +1336,10 @@ async function registerServiceWorker() {
     }
   }
 }
+
 function init() {
   loadData();
+  persistData();
   state.selectedMonth = currentMonth();
   state.selectedCalendarDate = todayISO();
   els.selectedMonth.value = state.selectedMonth;

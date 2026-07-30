@@ -797,3 +797,73 @@ button:focus-visible {
 .day-heading {
   margin: 14px 0 10px;
 }
+.auto-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef7f1;
+  color: var(--green-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.record.auto-transfer {
+  border-color: rgba(31, 122, 77, 0.28);
+  background: #f7fcf8;
+}
+
+.detail-item-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.detail-item-side .edit-button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
+.detail-item.editing {
+  grid-template-columns: 1fr;
+}
+
+.detail-edit-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.detail-edit-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.detail-edit-form input,
+.detail-edit-form select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.detail-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.detail-edit-actions button {
+  min-height: 40px;
+}
