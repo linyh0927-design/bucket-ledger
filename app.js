@@ -275,51 +275,86 @@ function compareAutoCoverEvents(a, b) {
   return String(a.id || "").localeCompare(String(b.id || ""));
 }
 
+function monthsBetween(startMonth, endMonth) {
+  const months = [];
+  let month = startMonth;
+  while (month <= endMonth) {
+    months.push(month);
+    month = shiftMonth(month, 1);
+  }
+  return months;
+}
+
 function reconcileAutoCoverTransfers() {
   const manualTransfers = state.data.transfers.filter((transfer) => !isAutoCoverTransfer(transfer));
+  const eventDates = [
+    ...state.data.incomes.map((record) => record.date),
+    ...state.data.expenses.map((record) => record.date),
+    ...manualTransfers.map((record) => record.date),
+  ].filter(Boolean);
+
+  if (!eventDates.length) {
+    state.data.transfers = manualTransfers;
+    return;
+  }
+
   const balances = Object.fromEntries(state.data.buckets.map((bucket) => [bucket.id, Number(bucket.initialBalance) || 0]));
   const autoTransfers = [];
-  const events = [
-    ...state.data.incomes.map((record) => ({ ...record, type: "income", order: 0 })),
-    ...manualTransfers.map((record) => ({ ...record, type: "transfer", order: 1 })),
-    ...state.data.expenses.map((record) => ({ ...record, type: "expense", order: 2 })),
-  ].sort(compareAutoCoverEvents);
+  const sortedDates = eventDates.slice().sort();
+  const firstMonth = sortedDates[0].slice(0, 7);
+  const lastEventMonth = sortedDates[sortedDates.length - 1].slice(0, 7);
+  const lastMonth = lastEventMonth > currentMonth() ? lastEventMonth : currentMonth();
 
-  events.forEach((event) => {
-    if (event.type === "income") {
-      Object.entries(incomeAllocations(event)).forEach(([bucketId, amount]) => {
-        balances[bucketId] = (balances[bucketId] || 0) + Number(amount || 0);
-      });
-      return;
-    }
+  monthsBetween(firstMonth, lastMonth).forEach((month) => {
+    const start = monthStart(month);
+    const end = monthEnd(month);
+    const events = [
+      ...state.data.incomes.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "income", order: 0 })),
+      ...manualTransfers.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "transfer", order: 1 })),
+      ...state.data.expenses.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "expense", order: 2 })),
+    ].sort(compareAutoCoverEvents);
 
-    if (event.type === "transfer") {
-      balances[event.fromBucketId] = (balances[event.fromBucketId] || 0) - Number(event.amount || 0);
-      balances[event.toBucketId] = (balances[event.toBucketId] || 0) + Number(event.amount || 0);
-      return;
-    }
+    events.forEach((event) => {
+      if (event.type === "income") {
+        Object.entries(incomeAllocations(event)).forEach(([bucketId, amount]) => {
+          balances[bucketId] = (balances[bucketId] || 0) + Number(amount || 0);
+        });
+        return;
+      }
 
-    if (event.type !== "expense" || !event.bucketId) return;
-    balances[event.bucketId] = (balances[event.bucketId] || 0) - Number(event.amount || 0);
-    if (event.bucketId === "savings" || balances[event.bucketId] >= 0) return;
+      if (event.type === "transfer") {
+        balances[event.fromBucketId] = (balances[event.fromBucketId] || 0) - Number(event.amount || 0);
+        balances[event.toBucketId] = (balances[event.toBucketId] || 0) + Number(event.amount || 0);
+        return;
+      }
 
-    const coverAmount = Number((-balances[event.bucketId]).toFixed(2));
-    if (!coverAmount) return;
-    const label = event.itemName || event.category || "支出";
-    autoTransfers.push({
-      id: `auto-cover-${event.id}`,
-      date: event.date,
-      fromBucketId: "savings",
-      toBucketId: event.bucketId,
-      amount: coverAmount,
-      note: `${AUTO_COVER_TRANSFER_NOTE}：${label}`,
-      kind: AUTO_COVER_TRANSFER_KIND,
-      systemGenerated: true,
-      autoCoverExpenseId: event.id,
-      createdAt: event.createdAt || `${event.date}T23:59:59.000`,
+      if (event.type === "expense" && event.bucketId) {
+        balances[event.bucketId] = (balances[event.bucketId] || 0) - Number(event.amount || 0);
+      }
     });
-    balances.savings = (balances.savings || 0) - coverAmount;
-    balances[event.bucketId] = 0;
+
+    state.data.buckets
+      .filter((bucket) => bucket.id !== "savings")
+      .sort((a, b) => a.priority - b.priority)
+      .forEach((bucket) => {
+        if ((balances[bucket.id] || 0) >= 0) return;
+        const coverAmount = Number((-balances[bucket.id]).toFixed(2));
+        if (!coverAmount) return;
+        autoTransfers.push({
+          id: `auto-cover-${month}-${bucket.id}`,
+          date: month === currentMonth() ? todayISO() : end,
+          fromBucketId: "savings",
+          toBucketId: bucket.id,
+          amount: coverAmount,
+          note: `${AUTO_COVER_TRANSFER_NOTE}：${bucket.name} ${month} 月結`,
+          kind: AUTO_COVER_TRANSFER_KIND,
+          systemGenerated: true,
+          autoCoverMonth: month,
+          createdAt: `${month === currentMonth() ? todayISO() : end}T23:59:59.000`,
+        });
+        balances.savings = (balances.savings || 0) - coverAmount;
+        balances[bucket.id] = 0;
+      });
   });
 
   state.data.transfers = [...manualTransfers, ...autoTransfers].sort((a, b) => {
@@ -328,7 +363,6 @@ function reconcileAutoCoverTransfers() {
     return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
   });
 }
-
 function persistData() {
   reconcileAutoCoverTransfers();
   saveData();
