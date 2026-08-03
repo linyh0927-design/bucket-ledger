@@ -70,6 +70,12 @@ const els = {
   bucketCards: document.querySelector("#bucketCards"),
   savingsBalance: document.querySelector("#savingsBalance"),
   etfInvested: document.querySelector("#etfInvested"),
+  ledgerAsOfLabel: document.querySelector("#ledgerAsOfLabel"),
+  ledgerInitialTotal: document.querySelector("#ledgerInitialTotal"),
+  ledgerIncomeTotal: document.querySelector("#ledgerIncomeTotal"),
+  ledgerExpenseTotal: document.querySelector("#ledgerExpenseTotal"),
+  ledgerBucketTotal: document.querySelector("#ledgerBucketTotal"),
+  ledgerDelta: document.querySelector("#ledgerDelta"),
   expenseForm: document.querySelector("#expenseForm"),
   incomeForm: document.querySelector("#incomeForm"),
   transferForm: document.querySelector("#transferForm"),
@@ -263,107 +269,24 @@ function incomeAllocations(income) {
 }
 
 function isAutoCoverTransfer(transfer) {
-  return transfer?.kind === AUTO_COVER_TRANSFER_KIND || (transfer?.systemGenerated && String(transfer.note || "").startsWith(AUTO_COVER_TRANSFER_NOTE));
-}
-
-function compareAutoCoverEvents(a, b) {
-  const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
-  if (dateCompare) return dateCompare;
-  if (a.order !== b.order) return a.order - b.order;
-  const createdCompare = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
-  if (createdCompare) return createdCompare;
-  return String(a.id || "").localeCompare(String(b.id || ""));
-}
-
-function monthsBetween(startMonth, endMonth) {
-  const months = [];
-  let month = startMonth;
-  while (month <= endMonth) {
-    months.push(month);
-    month = shiftMonth(month, 1);
-  }
-  return months;
+  const kind = String(transfer?.kind || "");
+  const note = String(transfer?.note || "");
+  return Boolean(
+    kind === AUTO_COVER_TRANSFER_KIND ||
+      kind === "auto_savings_cover" ||
+      transfer?.autoCoverMonth ||
+      transfer?.autoCoverBucketId ||
+      transfer?.autoCover ||
+      (transfer?.systemGenerated && (
+        note.startsWith(AUTO_COVER_TRANSFER_NOTE) ||
+        note.includes("儲蓄動用") ||
+        note.includes("補洞")
+      ))
+  );
 }
 
 function reconcileAutoCoverTransfers() {
-  const manualTransfers = state.data.transfers.filter((transfer) => !isAutoCoverTransfer(transfer));
-  const eventDates = [
-    ...state.data.incomes.map((record) => record.date),
-    ...state.data.expenses.map((record) => record.date),
-    ...manualTransfers.map((record) => record.date),
-  ].filter(Boolean);
-
-  if (!eventDates.length) {
-    state.data.transfers = manualTransfers;
-    return;
-  }
-
-  const balances = Object.fromEntries(state.data.buckets.map((bucket) => [bucket.id, Number(bucket.initialBalance) || 0]));
-  const autoTransfers = [];
-  const sortedDates = eventDates.slice().sort();
-  const firstMonth = sortedDates[0].slice(0, 7);
-  const lastEventMonth = sortedDates[sortedDates.length - 1].slice(0, 7);
-  const lastMonth = lastEventMonth > currentMonth() ? lastEventMonth : currentMonth();
-
-  monthsBetween(firstMonth, lastMonth).forEach((month) => {
-    const start = monthStart(month);
-    const end = monthEnd(month);
-    const openingDeficits = Object.fromEntries(
-      state.data.buckets.map((bucket) => [bucket.id, Math.max(0, -(balances[bucket.id] || 0))])
-    );
-    const events = [
-      ...state.data.incomes.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "income", order: 0 })),
-      ...manualTransfers.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "transfer", order: 1 })),
-      ...state.data.expenses.filter((record) => record.date >= start && record.date <= end).map((record) => ({ ...record, type: "expense", order: 2 })),
-    ].sort(compareAutoCoverEvents);
-
-    events.forEach((event) => {
-      if (event.type === "income") {
-        Object.entries(incomeAllocations(event)).forEach(([bucketId, amount]) => {
-          balances[bucketId] = (balances[bucketId] || 0) + Number(amount || 0);
-        });
-        return;
-      }
-
-      if (event.type === "transfer") {
-        balances[event.fromBucketId] = (balances[event.fromBucketId] || 0) - Number(event.amount || 0);
-        balances[event.toBucketId] = (balances[event.toBucketId] || 0) + Number(event.amount || 0);
-        return;
-      }
-
-      if (event.type === "expense" && event.bucketId) {
-        balances[event.bucketId] = (balances[event.bucketId] || 0) - Number(event.amount || 0);
-      }
-    });
-
-    state.data.buckets
-      .filter((bucket) => bucket.id !== "savings")
-      .sort((a, b) => a.priority - b.priority)
-      .forEach((bucket) => {
-        const currentDeficit = Math.max(0, -(balances[bucket.id] || 0));
-        const coverAmount = Number((currentDeficit - (openingDeficits[bucket.id] || 0)).toFixed(2));
-        if (coverAmount <= 0) return;
-        autoTransfers.push({
-          id: `auto-cover-${month}-${bucket.id}`,
-          date: month === currentMonth() ? todayISO() : end,
-          fromBucketId: "savings",
-          toBucketId: bucket.id,
-          amount: coverAmount,
-          note: `${AUTO_COVER_TRANSFER_NOTE}：${bucket.name} ${month} 新增超支`,
-          kind: AUTO_COVER_TRANSFER_KIND,
-          systemGenerated: true,
-          autoCoverMonth: month,
-          createdAt: `${month === currentMonth() ? todayISO() : end}T23:59:59.000`,
-        });
-        balances.savings = (balances.savings || 0) - coverAmount;
-      });
-  });
-
-  state.data.transfers = [...manualTransfers, ...autoTransfers].sort((a, b) => {
-    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
-    if (dateCompare) return dateCompare;
-    return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
-  });
+  state.data.transfers = state.data.transfers.filter((transfer) => !isAutoCoverTransfer(transfer));
 }
 function persistData() {
   reconcileAutoCoverTransfers();
@@ -394,9 +317,7 @@ function balanceMapThrough(date) {
 
   events.transfers.forEach((transfer) => {
     balances[transfer.fromBucketId] = (balances[transfer.fromBucketId] || 0) - Number(transfer.amount || 0);
-    if (!isAutoCoverTransfer(transfer)) {
-      balances[transfer.toBucketId] = (balances[transfer.toBucketId] || 0) + Number(transfer.amount || 0);
-    }
+    balances[transfer.toBucketId] = (balances[transfer.toBucketId] || 0) + Number(transfer.amount || 0);
   });
   return balances;
 }
@@ -416,9 +337,7 @@ function monthlySnapshot(month) {
   const opening = start <= "1900-01-01" ? {} : balanceMapThrough(dateBeforeStart);
   const monthIncomes = state.data.incomes.filter((item) => item.date >= start && item.date <= end);
   const monthExpenses = state.data.expenses.filter((item) => item.date >= start && item.date <= end);
-  const monthTransfers = state.data.transfers.filter((item) => item.date >= start && item.date <= end);
-  const manualTransfers = monthTransfers.filter((transfer) => !isAutoCoverTransfer(transfer));
-  const autoCoverTransfers = monthTransfers.filter(isAutoCoverTransfer);
+  const monthTransfers = state.data.transfers.filter((item) => item.date >= start && item.date <= end && !isAutoCoverTransfer(item));
   const allocated = {};
   monthIncomes.forEach((income) => {
     Object.entries(incomeAllocations(income)).forEach(([bucketId, amount]) => {
@@ -426,32 +345,25 @@ function monthlySnapshot(month) {
     });
   });
   const spent = sumByBucket(monthExpenses, "bucketId");
-  const manualTransferIn = sumByBucket(manualTransfers, "toBucketId");
-  const manualTransferOut = sumByBucket(manualTransfers, "fromBucketId");
-  const autoCoverIn = sumByBucket(autoCoverTransfers, "toBucketId");
-  const autoCoverOut = sumByBucket(autoCoverTransfers, "fromBucketId");
+  const transferIn = sumByBucket(monthTransfers, "toBucketId");
+  const transferOut = sumByBucket(monthTransfers, "fromBucketId");
 
   return state.data.buckets.map((bucket) => {
-    const openingBalance = Number(opening[bucket.id] || bucket.initialBalance || 0);
+    const openingBalance = Number(opening[bucket.id] ?? bucket.initialBalance ?? 0);
     const allocatedIn = Number(allocated[bucket.id] || 0);
     const spentOut = Number(spent[bucket.id] || 0);
-    const manualInAmount = Number(manualTransferIn[bucket.id] || 0);
-    const manualOutAmount = Number(manualTransferOut[bucket.id] || 0);
-    const autoInAmount = Number(autoCoverIn[bucket.id] || 0);
-    const autoOutAmount = Number(autoCoverOut[bucket.id] || 0);
-    const closingBeforeAutoCover = openingBalance + allocatedIn - spentOut + manualInAmount - manualOutAmount;
+    const inAmount = Number(transferIn[bucket.id] || 0);
+    const outAmount = Number(transferOut[bucket.id] || 0);
+    const closingBalance = openingBalance + allocatedIn - spentOut + inAmount - outAmount;
     return {
       bucket,
       openingBalance,
       allocatedIn,
       spent: spentOut,
-      transferIn: manualInAmount,
-      transferOut: manualOutAmount,
-      autoCoverIn: autoInAmount,
-      autoCoverOut: autoOutAmount,
-      autoCoverNet: autoInAmount - autoOutAmount,
-      closingBeforeAutoCover,
-      closingBalance: bucket.id === "savings" ? closingBeforeAutoCover - autoOutAmount : closingBeforeAutoCover,
+      transferIn: inAmount,
+      transferOut: outAmount,
+      closingBeforeAutoCover: closingBalance,
+      closingBalance,
     };
   });
 }
@@ -481,23 +393,45 @@ function allCombinedRecords() {
   });
 }
 
+function ledgerTotalsThrough(date) {
+  const balances = balanceMapThrough(date);
+  const initialTotal = state.data.buckets.reduce((sum, bucket) => sum + Number(bucket.initialBalance || 0), 0);
+  const incomeTotal = state.data.incomes.filter((income) => income.date <= date).reduce((sum, income) => sum + Number(income.amount || 0), 0);
+  const expenseTotal = state.data.expenses.filter((expense) => expense.date <= date).reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const bucketTotal = Object.values(balances).reduce((sum, value) => sum + Number(value || 0), 0);
+  const delta = initialTotal + incomeTotal - expenseTotal - bucketTotal;
+  return { balances, initialTotal, incomeTotal, expenseTotal, bucketTotal, delta };
+}
+
+function renderLedgerCheck(date, totals) {
+  els.ledgerAsOfLabel.textContent = `截至 ${date}`;
+  els.ledgerInitialTotal.textContent = money.format(totals.initialTotal);
+  els.ledgerIncomeTotal.textContent = money.format(totals.incomeTotal);
+  els.ledgerExpenseTotal.textContent = money.format(totals.expenseTotal);
+  els.ledgerBucketTotal.textContent = signedMoney(totals.bucketTotal);
+  els.ledgerDelta.textContent = signedMoney(totals.delta);
+  els.ledgerDelta.className = Math.abs(totals.delta) < 1 ? "positive" : "negative";
+}
 function renderDashboard() {
   const records = monthRecords(state.selectedMonth);
   const snapshot = monthlySnapshot(state.selectedMonth);
   const incomeTotal = records.incomes.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const spentTotal = records.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const allocatedTotal = snapshot.reduce((sum, item) => sum + item.allocatedIn, 0);
-  const balances = balanceMapThrough(state.selectedMonth === currentMonth() ? todayISO() : monthEnd(state.selectedMonth));
+  const asOfDate = state.selectedMonth === currentMonth() ? todayISO() : monthEnd(state.selectedMonth);
+  const ledgerTotals = ledgerTotalsThrough(asOfDate);
+  const balances = ledgerTotals.balances;
 
   els.monthIncome.textContent = money.format(incomeTotal);
   els.monthSpent.textContent = money.format(spentTotal);
   els.monthAllocated.textContent = money.format(allocatedTotal);
   els.bucketAsOfLabel.textContent = state.selectedMonth === currentMonth() ? "截至今天" : "月底餘額";
   els.savingsBalance.textContent = money.format(balances.savings || 0);
-  els.etfInvested.textContent = money.format(totalEtfInvestedThrough(state.selectedMonth === currentMonth() ? todayISO() : monthEnd(state.selectedMonth)));
+  els.etfInvested.textContent = money.format(totalEtfInvestedThrough(asOfDate));
+  renderLedgerCheck(asOfDate, ledgerTotals);
 
   els.bucketCards.innerHTML = snapshot
-    .map(({ bucket, allocatedIn, spent, transferIn, transferOut, autoCoverNet, closingBeforeAutoCover }) => {
+    .map(({ bucket, allocatedIn, spent, transferIn, transferOut, closingBalance }) => {
       const balance = balances[bucket.id] || 0;
       return `
         <article class="bucket-card interactive-card" data-bucket-detail-id="${escapeHtml(bucket.id)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(bucket.name)} 支出明細">
@@ -506,19 +440,18 @@ function renderDashboard() {
               <strong>${escapeHtml(bucket.name)}</strong>
               <span class="pill ${bucket.kind}">${bucket.isRemainderBucket ? "剩餘收入" : "固定分配"}</span>
             </div>
-            <div class="bucket-balance ${balance < 0 ? "negative" : ""}">${money.format(balance)}</div>
+            <div class="bucket-balance ${balance < 0 ? "negative" : ""}">${signedMoney(balance)}</div>
           </header>
-          <div class="bucket-status ${amountClass(closingBeforeAutoCover)}">
-            <span>補洞前桶狀態</span>
-            <strong>${signedMoney(closingBeforeAutoCover)}</strong>
+          <div class="bucket-status ${amountClass(closingBalance)}">
+            <span>桶累積狀態</span>
+            <strong>${signedMoney(closingBalance)}</strong>
           </div>
           <div class="bucket-meta">
             <span>本月新增 <b>${money.format(allocatedIn)}</b></span>
             <span>本月支出 <b>${money.format(spent)}</b></span>
             <span>手動轉入 <b>${money.format(transferIn)}</b></span>
             <span>手動轉出 <b>${money.format(transferOut)}</b></span>
-            <span>儲蓄動用 <b class="${amountClass(autoCoverNet)}">${signedMoney(autoCoverNet)}</b></span>
-            <span>桶狀態 <b class="${amountClass(balance)}">${money.format(balance)}</b></span>
+            <span>桶狀態 <b class="${amountClass(balance)}">${signedMoney(balance)}</b></span>
           </div>
         </article>
       `;
@@ -649,13 +582,12 @@ function renderRecord(record) {
   }
 
   if (record.recordType === "transfer") {
-    const autoCover = isAutoCoverTransfer(record);
     return `
-      <article class="record transfer ${autoCover ? "auto-transfer" : ""}">
-        <header><strong>${autoCover ? "儲蓄動用" : "桶轉移"}</strong><span class="amount">${money.format(record.amount)}</span></header>
-        <div class="record-meta">${escapeHtml(record.date)}｜${autoCover ? `儲蓄用於 ${escapeHtml(bucketById(record.toBucketId)?.name || record.toBucketId)}` : `${escapeHtml(bucketById(record.fromBucketId)?.name)} → ${escapeHtml(bucketById(record.toBucketId)?.name)}`}${record.note ? `｜${escapeHtml(record.note)}` : ""}</div>
+      <article class="record transfer">
+        <header><strong>桶轉移</strong><span class="amount">${money.format(record.amount)}</span></header>
+        <div class="record-meta">${escapeHtml(record.date)}｜${escapeHtml(bucketById(record.fromBucketId)?.name)} → ${escapeHtml(bucketById(record.toBucketId)?.name)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</div>
         <div class="record-actions">
-          ${autoCover ? `<span class="auto-label">系統自動</span>` : `<button class="edit-button" data-edit-type="transfer" data-edit-id="${record.id}" type="button">編輯</button><button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button>`}
+          <button class="edit-button" data-edit-type="transfer" data-edit-id="${record.id}" type="button">編輯</button><button class="delete-button" data-delete-type="transfer" data-delete-id="${record.id}" type="button">刪除</button>
         </div>
       </article>
     `;
@@ -677,18 +609,16 @@ function renderMonthlyReport() {
   const snapshot = monthlySnapshot(state.selectedMonth);
   els.reportMonthLabel.textContent = state.selectedMonth;
   els.monthlyReport.innerHTML = snapshot
-    .map(({ bucket, openingBalance, allocatedIn, spent, transferIn, transferOut, autoCoverNet, closingBeforeAutoCover, closingBalance }) => `
+    .map(({ bucket, openingBalance, allocatedIn, spent, transferIn, transferOut, closingBalance }) => `
       <article class="report-row interactive-card" data-bucket-detail-id="${escapeHtml(bucket.id)}" tabindex="0" role="button" aria-label="查看 ${escapeHtml(bucket.name)} 支出明細">
-        <header><strong>${escapeHtml(bucket.name)}</strong><span class="${amountClass(closingBeforeAutoCover)}">${signedMoney(closingBeforeAutoCover)}</span></header>
+        <header><strong>${escapeHtml(bucket.name)}</strong><span class="${amountClass(closingBalance)}">${signedMoney(closingBalance)}</span></header>
         <div class="report-grid">
-          <span>期初 <b>${money.format(openingBalance)}</b></span>
+          <span>期初 <b class="${amountClass(openingBalance)}">${signedMoney(openingBalance)}</b></span>
           <span>新增 <b>${money.format(allocatedIn)}</b></span>
           <span>支出 <b>${money.format(spent)}</b></span>
           <span>手動轉入 <b>${money.format(transferIn)}</b></span>
           <span>手動轉出 <b>${money.format(transferOut)}</b></span>
-          <span>補洞前 <b class="${amountClass(closingBeforeAutoCover)}">${signedMoney(closingBeforeAutoCover)}</b></span>
-          <span>儲蓄動用 <b class="${amountClass(autoCoverNet)}">${signedMoney(autoCoverNet)}</b></span>
-          <span>桶期末 <b class="${amountClass(closingBalance)}">${money.format(closingBalance)}</b></span>
+          <span>桶期末 <b class="${amountClass(closingBalance)}">${signedMoney(closingBalance)}</b></span>
         </div>
       </article>
     `)
@@ -707,9 +637,7 @@ function recordsForBucketDetail(bucketId, month) {
   const records = monthRecords(month);
   const expenses = sortBucketDetailRecords(records.expenses.filter((record) => record.bucketId === bucketId));
   const transfersOut = sortBucketDetailRecords(records.transfers.filter((record) => record.fromBucketId === bucketId && !isAutoCoverTransfer(record)));
-  const autoCoversIn = sortBucketDetailRecords(records.transfers.filter((record) => record.toBucketId === bucketId && isAutoCoverTransfer(record)));
-  const autoCoversOut = sortBucketDetailRecords(records.transfers.filter((record) => record.fromBucketId === bucketId && isAutoCoverTransfer(record)));
-  return { expenses, transfersOut, autoCoversIn, autoCoversOut };
+  return { expenses, transfersOut };
 }
 function renderBucketExpenseItem(record) {
   const editing = state.bucketDetailEditingExpenseId === record.id;
@@ -758,11 +686,9 @@ function renderBucketDetail(bucketId) {
   if (!bucket) return;
   const month = state.selectedMonth;
   const snapshot = monthlySnapshot(month).find((item) => item.bucket.id === bucketId);
-  const { expenses, transfersOut, autoCoversIn, autoCoversOut } = recordsForBucketDetail(bucketId, month);
+  const { expenses, transfersOut } = recordsForBucketDetail(bucketId, month);
   const spentTotal = expenses.reduce((sum, record) => sum + Number(record.amount || 0), 0);
   const transferOutTotal = transfersOut.reduce((sum, record) => sum + Number(record.amount || 0), 0);
-  const autoCoverNet = snapshot ? snapshot.autoCoverNet : 0;
-  const closingBeforeAutoCover = snapshot ? snapshot.closingBeforeAutoCover : 0;
   const closingBalance = snapshot ? snapshot.closingBalance : 0;
 
   document.querySelectorAll("[data-bucket-detail-sort]").forEach((button) => {
@@ -771,28 +697,15 @@ function renderBucketDetail(bucketId) {
   els.bucketDetailRange.textContent = `${month} 桶明細`;
   els.bucketDetailTitle.textContent = bucket.name;
   els.bucketDetailSummary.innerHTML = `
-    <article><span>補洞前桶狀態</span><strong class="${amountClass(closingBeforeAutoCover)}">${signedMoney(closingBeforeAutoCover)}</strong></article>
     <article><span>桶累積狀態</span><strong class="${amountClass(closingBalance)}">${signedMoney(closingBalance)}</strong></article>
     <article><span>支出合計</span><strong>${money.format(spentTotal)}</strong></article>
-    <article><span>儲蓄動用</span><strong class="${amountClass(autoCoverNet)}">${signedMoney(autoCoverNet)}</strong></article>
+    <article><span>手動轉出</span><strong>${money.format(transferOutTotal)}</strong></article>
   `;
   els.bucketDetailContent.innerHTML = `
     ${renderBucketDetailList("支出明細", expenses, renderBucketExpenseItem)}
     ${renderBucketDetailList("手動轉出紀錄", transfersOut, (record) => `
       <article class="detail-item transfer">
         <div><strong>轉到 ${escapeHtml(bucketById(record.toBucketId)?.name || record.toBucketId)}</strong><span>${escapeHtml(record.date)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</span></div>
-        <b>-${money.format(record.amount)}</b>
-      </article>
-    `)}
-    ${renderBucketDetailList("儲蓄動用紀錄", autoCoversIn, (record) => `
-      <article class="detail-item transfer auto-transfer">
-        <div><strong>動用儲蓄</strong><span>${escapeHtml(record.date)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</span></div>
-        <b class="positive">+${money.format(record.amount)}</b>
-      </article>
-    `)}
-    ${renderBucketDetailList("儲蓄補出紀錄", autoCoversOut, (record) => `
-      <article class="detail-item transfer auto-transfer">
-        <div><strong>補到 ${escapeHtml(bucketById(record.toBucketId)?.name || record.toBucketId)}</strong><span>${escapeHtml(record.date)}${record.note ? `｜${escapeHtml(record.note)}` : ""}</span></div>
         <b>-${money.format(record.amount)}</b>
       </article>
     `)}
@@ -978,8 +891,8 @@ function renderReports() {
   );
 
   const bucketSpentRows = groupedAmounts(records.expenses, (record) => bucketById(record.bucketId)?.name || record.bucketId);
-  const transferRows = groupedAmounts(records.transfers, (record) => `${bucketById(record.fromBucketId)?.name || record.fromBucketId} → ${bucketById(record.toBucketId)?.name || record.toBucketId}`);
-  renderRatioList(els.bucketUsage, [...bucketSpentRows, ...transferRows.map(([label, amount]) => [`轉移：${label}`, amount])], totalSpent + records.transfers.reduce((sum, record) => sum + Number(record.amount || 0), 0));
+  const transferRows = groupedAmounts(records.transfers.filter((record) => !isAutoCoverTransfer(record)), (record) => `${bucketById(record.fromBucketId)?.name || record.fromBucketId} → ${bucketById(record.toBucketId)?.name || record.toBucketId}`);
+  renderRatioList(els.bucketUsage, [...bucketSpentRows, ...transferRows.map(([label, amount]) => [`轉移：${label}`, amount])], totalSpent + records.transfers.filter((record) => !isAutoCoverTransfer(record)).reduce((sum, record) => sum + Number(record.amount || 0), 0));
   renderTrends();
 }
 

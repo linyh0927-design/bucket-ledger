@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1f7a4d" />
     <title>分桶帳本</title>
-    <link rel="manifest" href="manifest.json?v=20260803-ledgerstate" />
-    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260803-ledgerstate" type="image/png" />
+    <link rel="manifest" href="manifest.json?v=20260804-nocover" />
+    <link rel="icon" href="icon-dollar-192-20260711.png?v=20260804-nocover" type="image/png" />
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-dollar-20260711.png" />
     <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon-precomposed-dollar-20260711.png" />
-    <link rel="stylesheet" href="styles.css?v=20260803-ledgerstate" />
+    <link rel="stylesheet" href="styles.css?v=20260804-nocover" />
   </head>
   <body>
     <main class="app-shell">
@@ -51,6 +51,19 @@
             <span id="bucketAsOfLabel"></span>
           </div>
           <div id="bucketCards" class="bucket-grid"></div>
+        </section>
+        <section class="panel ledger-check">
+          <div class="section-heading">
+            <h2>總對帳</h2>
+            <span id="ledgerAsOfLabel"></span>
+          </div>
+          <div class="ledger-grid">
+            <article><span>期初合計</span><strong id="ledgerInitialTotal">NT$0</strong></article>
+            <article><span>累積收入</span><strong id="ledgerIncomeTotal">NT$0</strong></article>
+            <article><span>累積支出</span><strong id="ledgerExpenseTotal">NT$0</strong></article>
+            <article><span>桶餘額合計</span><strong id="ledgerBucketTotal">NT$0</strong></article>
+            <article class="ledger-delta"><span>對帳差額</span><strong id="ledgerDelta">NT$0</strong></article>
+          </div>
         </section>
 
         <section class="panel">
@@ -297,6 +310,6 @@
       </div>
     </template>
 
-    <script src="app.js?v=20260803-ledgerstate" defer></script>
+    <script src="app.js?v=20260804-nocover" defer></script>
   </body>
 </html>
