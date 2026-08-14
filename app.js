@@ -1,4 +1,5 @@
 const STORAGE_KEY = "bucket-budget-ledger-v1";
+const UI_STATE_KEY = "bucket-budget-ledger-ui-v1";
 const AUTO_COVER_TRANSFER_KIND = "auto-cover";
 const AUTO_COVER_TRANSFER_NOTE = "自動補足超支";
 
@@ -50,6 +51,7 @@ const state = {
   },
   selectedMonth: "",
   selectedCalendarDate: "",
+  activeTab: "dashboard",
   pieRangeMode: "month",
   bucketDetailSort: "date",
   activeBucketDetailId: null,
@@ -227,6 +229,40 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+}
+
+function loadUiState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(UI_STATE_KEY));
+    if (!saved || typeof saved !== "object") return;
+    const tabs = ["dashboard", "entry", "history", "reports", "settings"];
+    const modes = ["expense", "income", "transfer"];
+    const pieModes = ["month", "year", "custom"];
+    if (tabs.includes(saved.activeTab)) state.activeTab = saved.activeTab;
+    if (/^\d{4}-\d{2}$/.test(saved.selectedMonth || "")) state.selectedMonth = saved.selectedMonth;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(saved.selectedCalendarDate || "")) state.selectedCalendarDate = saved.selectedCalendarDate;
+    if (modes.includes(saved.entryMode)) state.entryMode = saved.entryMode;
+    if (pieModes.includes(saved.pieRangeMode)) state.pieRangeMode = saved.pieRangeMode;
+  } catch {
+    // UI state is optional; corrupt values should not block bookkeeping.
+  }
+}
+
+function persistUiState() {
+  try {
+    localStorage.setItem(
+      UI_STATE_KEY,
+      JSON.stringify({
+        activeTab: state.activeTab,
+        selectedMonth: state.selectedMonth,
+        selectedCalendarDate: state.selectedCalendarDate,
+        entryMode: state.entryMode,
+        pieRangeMode: state.pieRangeMode,
+      })
+    );
+  } catch {
+    // The app can still work if storage is unavailable.
+  }
 }
 
 function bucketById(id) {
@@ -1166,20 +1202,27 @@ async function importData(file) {
 }
 
 function setActiveTab(tabName) {
-  document.querySelectorAll("[data-tab]").forEach((button) => button.classList.toggle("active", button.dataset.tab === tabName));
-  document.querySelectorAll("[data-view]").forEach((view) => view.classList.toggle("active", view.dataset.view === tabName));
+  const tabs = Array.from(document.querySelectorAll("[data-tab]")).map((button) => button.dataset.tab);
+  const nextTab = tabs.includes(tabName) ? tabName : "dashboard";
+  state.activeTab = nextTab;
+  document.querySelectorAll("[data-tab]").forEach((button) => button.classList.toggle("active", button.dataset.tab === nextTab));
+  document.querySelectorAll("[data-view]").forEach((view) => view.classList.toggle("active", view.dataset.view === nextTab));
+  persistUiState();
 }
 
 function setEntryMode(mode) {
-  state.entryMode = mode;
-  document.querySelectorAll("[data-entry-mode]").forEach((button) => button.classList.toggle("active", button.dataset.entryMode === mode));
-  document.querySelectorAll("[data-entry-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.entryPanel === mode));
+  const modes = ["expense", "income", "transfer"];
+  state.entryMode = modes.includes(mode) ? mode : "expense";
+  document.querySelectorAll("[data-entry-mode]").forEach((button) => button.classList.toggle("active", button.dataset.entryMode === state.entryMode));
+  document.querySelectorAll("[data-entry-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.entryPanel === state.entryMode));
+  persistUiState();
 }
 
 function handleCalendarAction(event) {
   const button = event.target.closest("[data-calendar-date]");
   if (!button) return;
   state.selectedCalendarDate = button.dataset.calendarDate;
+  persistUiState();
   renderHistoryCalendar();
   renderSelectedDayRecords();
 }
@@ -1253,6 +1296,7 @@ function initEvents() {
   document.querySelectorAll("[data-pie-range]").forEach((button) => {
     button.addEventListener("click", () => {
       state.pieRangeMode = button.dataset.pieRange;
+      persistUiState();
       renderReports();
     });
   });
@@ -1260,6 +1304,7 @@ function initEvents() {
   els.selectedMonth.addEventListener("change", () => {
     state.selectedMonth = els.selectedMonth.value || currentMonth();
     ensureCalendarDate();
+    persistUiState();
     render();
   });
   els.jumpCurrentMonth.addEventListener("click", () => {
@@ -1270,6 +1315,7 @@ function initEvents() {
       els.pieStartDate.value = monthStart(state.selectedMonth);
       els.pieEndDate.value = todayISO();
     }
+    persistUiState();
     render();
   });
   els.categoryGroup.addEventListener("change", updateCategorySelectors);
@@ -1320,12 +1366,6 @@ function initEvents() {
 async function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
       const registration = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
       await registration.update();
     } catch {
@@ -1337,18 +1377,23 @@ async function registerServiceWorker() {
 function init() {
   loadData();
   persistData();
-  state.selectedMonth = currentMonth();
-  state.selectedCalendarDate = todayISO();
+  loadUiState();
+  state.selectedMonth = state.selectedMonth || currentMonth();
+  state.selectedCalendarDate = state.selectedCalendarDate || (state.selectedMonth === currentMonth() ? todayISO() : monthStart(state.selectedMonth));
+  ensureCalendarDate();
   els.selectedMonth.value = state.selectedMonth;
   if (els.pieStartDate && els.pieEndDate) {
     els.pieStartDate.value = monthStart(state.selectedMonth);
-    els.pieEndDate.value = todayISO();
+    els.pieEndDate.value = state.selectedMonth === currentMonth() ? todayISO() : monthEnd(state.selectedMonth);
   }
   [els.expenseDate, els.incomeDate, els.transferDate].forEach((input) => {
     input.value = todayISO();
   });
   initEvents();
   render();
+  setActiveTab(state.activeTab);
+  setEntryMode(state.entryMode);
+  persistUiState();
   registerServiceWorker();
 }
 
