@@ -1401,6 +1401,7 @@ async function registerServiceWorker() {
 
 function init() {
   loadData();
+  reallocateIncomesForMonth(currentMonth());
   persistData();
   loadUiState();
   state.selectedMonth = state.selectedMonth || currentMonth();
