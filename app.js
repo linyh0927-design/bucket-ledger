@@ -225,6 +225,7 @@ function loadData() {
   } catch {
     state.data = normalizeData(null);
   }
+  freezeMissingIncomeAllocations();
 }
 
 function saveData() {
@@ -302,6 +303,24 @@ function allocateIncome(amount) {
 
 function incomeAllocations(income) {
   return income.allocations && typeof income.allocations === "object" ? income.allocations : allocateIncome(income.amount);
+}
+
+function reallocateIncomesForMonth(month) {
+  const start = monthStart(month);
+  const end = monthEnd(month);
+  state.data.incomes
+    .filter((income) => income.date >= start && income.date <= end)
+    .forEach((income) => {
+      income.allocations = allocateIncome(income.amount);
+    });
+}
+
+function freezeMissingIncomeAllocations() {
+  state.data.incomes.forEach((income) => {
+    if (!income.allocations || typeof income.allocations !== "object") {
+      income.allocations = allocateIncome(income.amount);
+    }
+  });
 }
 
 function isAutoCoverTransfer(transfer) {
@@ -1165,12 +1184,18 @@ function clearEditMode() {
 
 function saveSettings(event) {
   event.preventDefault();
+  let allocationChanged = false;
   els.bucketSettings.querySelectorAll("input[data-bucket-id]").forEach((input) => {
     const bucket = bucketById(input.dataset.bucketId);
     if (!bucket) return;
-    if (input.dataset.setting === "allocation" && !bucket.isRemainderBucket) bucket.monthlyAllocationAmount = Number(input.value || 0);
+    if (input.dataset.setting === "allocation" && !bucket.isRemainderBucket) {
+      const nextAmount = Number(input.value || 0);
+      if (Number(bucket.monthlyAllocationAmount || 0) !== nextAmount) allocationChanged = true;
+      bucket.monthlyAllocationAmount = nextAmount;
+    }
     if (input.dataset.setting === "initial") bucket.initialBalance = Number(input.value || 0);
   });
+  if (allocationChanged) reallocateIncomesForMonth(state.selectedMonth);
   persistData();
   render();
 }
